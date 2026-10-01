@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function conSesion() {
+      return request.auth != null;
+    }
+    function registrado() {
+      return conSesion() && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+    function esAdmin() {
+      return registrado() &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    // Perfiles de técnicos y administradores
+    match /usuarios/{uid} {
+      allow read: if conSesion() && (request.auth.uid == uid || esAdmin());
+      allow write: if esAdmin();
+    }
+
+    // Versión vigente del formato
+    match /config/{doc} {
+      allow read: if registrado();
+      allow write: if esAdmin();
+    }
+
+    // Historial de versiones del formato (no se borran nunca)
+    match /formatos/{version} {
+      allow read: if registrado();
+      allow create: if esAdmin();
+      allow update, delete: if false;
+    }
+
+    // Informes de servicio técnico
+    match /informes/{id} {
+      allow create: if registrado() && request.resource.data.tecnicoUid == request.auth.uid;
+      allow read: if esAdmin() || (registrado() && resource.data.tecnicoUid == request.auth.uid);
+      // Un informe firmado no se modifica. Solo el administrador puede anularlo o borrarlo.
+      allow update, delete: if esAdmin();
+    }
+  }
+}

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2F3336">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SIATET">
+  <title>SIATET · Informes de servicio</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <header class="barra">
+    <div class="marca"><span class="s">S</span>IATET<small>S.A.S.</small></div>
+    <span id="estado-red" class="estado-red">En línea</span>
+    <a id="btn-panel" class="boton-barra" href="admin.html" hidden style="text-decoration:none">Panel</a>
+    <button id="btn-cancelar" class="boton-barra" hidden>Cancelar</button>
+  </header>
+  <div id="barra-actualizacion" hidden>
+    <span>Hay una nueva versión de la app.</span>
+    <button type="button">Actualizar</button>
+  </div>
+
+  <main>
+    <!-- Cargando -->
+    <section id="pantalla-cargando">
+      <p class="vacio">Cargando…</p>
+    </section>
+
+    <!-- Ingreso -->
+    <section id="pantalla-ingreso" hidden>
+      <form id="form-ingreso" class="ingreso" novalidate>
+        <h1>Informes de servicio técnico</h1>
+        <p>Ingresa con el correo y la contraseña que te dio el administrador. La primera vez necesitas internet; después puedes trabajar sin conexión.</p>
+        <label class="campo"><span>Correo</span><input type="email" id="ing-correo" autocomplete="username" required></label>
+        <label class="campo"><span>Contraseña</span><input type="password" id="ing-clave" autocomplete="current-password" required></label>
+        <button class="boton primario ancho" type="submit">Ingresar</button>
+      </form>
+    </section>
+
+    <!-- Inicio -->
+    <section id="pantalla-inicio" hidden>
+      <p class="saludo" id="saludo"></p>
+      <p class="sub">Llena el informe en el sitio, pide la firma y descárgalo. Se guarda en la base de datos apenas haya internet.</p>
+      <button id="btn-nuevo" class="boton primario ancho">Nuevo informe</button>
+      <button id="btn-instalar" class="boton ancho instalar" hidden>Instalar la app en este dispositivo</button>
+      <p id="nota-ios" class="nota" hidden>Para instalar en iPhone: toca el botón Compartir de Safari y luego “Agregar a inicio”.</p>
+
+      <div class="resumen-sync" id="resumen-sync"></div>
+      <ul class="lista" id="lista-informes"></ul>
+
+      <div class="pie-app">
+        <span id="info-formato"></span>
+        <button id="btn-salir" class="boton pequeno">Cerrar sesión</button>
+      </div>
+    </section>
+
+    <!-- Formulario -->
+    <section id="pantalla-formulario" hidden>
+      <form id="form-informe" novalidate>
+        <div class="hoja"><div class="hoja-interior" id="hoja"></div></div>
+        <div class="fila-botones">
+          <button type="submit" class="boton primario ancho">Guardar informe</button>
+        </div>
+        <p class="nota">Se guarda primero en este celular. Cuando haya internet se envía solo a la base de datos.</p>
+      </form>
+    </section>
+
+    <!-- Informe guardado -->
+    <section id="pantalla-guardado" hidden>
+      <div class="confirmacion">
+        <div class="sello">✓</div>
+        <h2 id="guardado-titulo"></h2>
+        <p id="guardado-estado"></p>
+        <div class="fila-botones" style="justify-content:center">
+          <button id="btn-descargar" class="boton primario">Descargar PDF</button>
+          <button id="btn-compartir" class="boton">Compartir PDF</button>
+        </div>
+        <div class="fila-botones" style="justify-content:center">
+          <button id="btn-otro" class="boton pequeno">Hacer otro informe</button>
+          <button id="btn-volver" class="boton pequeno">Volver al inicio</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="dialogo-informe">
+    <h3 id="dlg-titulo"></h3>
+    <p id="dlg-detalle" class="nota"></p>
+    <div class="fila-botones">
+      <button id="dlg-descargar" class="boton primario pequeno">Descargar PDF</button>
+      <button id="dlg-compartir" class="boton pequeno">Compartir</button>
+      <button id="dlg-cerrar" class="boton pequeno">Cerrar</button>
+    </div>
+  </dialog>
+
+  <script src="js/libs/firebase-app-compat.js"></script>
+  <script src="js/libs/firebase-auth-compat.js"></script>
+  <script src="js/libs/firebase-firestore-compat.js"></script>
+  <script src="js/libs/jspdf.umd.min.js"></script>
+  <script src="js/libs/signature_pad.umd.min.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/formato-base.js"></script>
+  <script src="js/comun.js"></script>
+  <script src="js/pdf.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

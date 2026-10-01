@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2F3336">
+  <title>SIATET · Administración</title>
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/estilos.css">
+  <style>main { max-width: 1000px; }</style>
+</head>
+<body>
+  <header class="barra">
+    <div class="marca"><span class="s">S</span>IATET<small>Administración</small></div>
+    <span id="estado-red" class="estado-red">En línea</span>
+    <div class="acciones-barra">
+      <a id="btn-informe" class="boton-barra" href="index.html?modo=tecnico" hidden>Hacer informe</a>
+      <button id="btn-salir" class="boton-barra" hidden>Salir</button>
+    </div>
+  </header>
+  <div id="barra-actualizacion" hidden>
+    <span>Hay una nueva versión de la app.</span>
+    <button type="button">Actualizar</button>
+  </div>
+
+  <main>
+    <section id="pantalla-ingreso" hidden>
+      <form id="form-ingreso" class="ingreso" novalidate>
+        <h1>Panel de administración</h1>
+        <p>Solo para usuarios con rol de administrador.</p>
+        <label class="campo"><span>Correo</span><input type="email" id="ing-correo" autocomplete="username"></label>
+        <label class="campo"><span>Contraseña</span><input type="password" id="ing-clave" autocomplete="current-password"></label>
+        <button class="boton primario ancho" type="submit">Ingresar</button>
+      </form>
+    </section>
+
+    <section id="pantalla-panel" hidden>
+      <nav class="pestanas" role="tablist">
+        <button role="tab" data-pestana="formato" aria-selected="true">Formato</button>
+        <button role="tab" data-pestana="informes" aria-selected="false">Informes</button>
+        <button role="tab" data-pestana="tecnicos" aria-selected="false">Técnicos</button>
+      </nav>
+
+      <!-- ===================== FORMATO ===================== -->
+      <div data-panel="formato">
+        <div class="bloque">
+          <h2>Versión vigente: <span class="version-actual" id="version-vigente">0</span></h2>
+          <p>Edita el formato abajo y toca “Publicar nueva versión”. Los celulares la descargan solos la próxima vez que tengan internet. Los informes anteriores conservan el formato con el que se firmaron.</p>
+          <div class="fila-botones">
+            <button id="btn-vista" class="boton">Ver vista previa en PDF</button>
+            <button id="btn-publicar" class="boton primario">Publicar nueva versión</button>
+            <button id="btn-deshacer" class="boton pequeno">Descartar cambios</button>
+            <button id="btn-base" class="boton pequeno">Cargar el formato original</button>
+          </div>
+        </div>
+
+        <div class="bloque">
+          <h2>Empresa</h2>
+          <p>Datos del encabezado y pie de página.</p>
+          <div class="rejilla">
+            <label class="campo"><span>Nombre</span><input type="text" data-ruta="empresa.nombre"></label>
+            <label class="campo"><span>NIT</span><input type="text" data-ruta="empresa.nit"></label>
+            <label class="campo"><span>Descripción</span><input type="text" data-ruta="empresa.descripcion"></label>
+            <label class="campo"><span>Correo</span><input type="text" data-ruta="empresa.correo"></label>
+            <label class="campo"><span>Teléfono</span><input type="text" data-ruta="empresa.telefono"></label>
+            <label class="campo"><span>Título del informe</span><input type="text" data-ruta="titulo"></label>
+          </div>
+        </div>
+
+        <div class="bloque">
+          <h2>Logo y colores</h2>
+          <p>Usa un PNG con fondo transparente para mejores resultados.</p>
+          <img id="logo-vista" class="logo-vista" alt="Logo actual" hidden>
+          <div class="fila-botones" style="margin-top:0">
+            <label class="boton pequeno">Subir logo<input type="file" id="logo-archivo" accept="image/png,image/jpeg" hidden></label>
+            <button id="logo-quitar" class="boton pequeno peligro">Quitar logo</button>
+          </div>
+          <label class="campo" style="margin-top:14px; display:flex; gap:8px; align-items:center">
+            <input type="checkbox" data-ruta="marcaDeAgua" style="width:20px;height:20px"> <span style="margin:0">Usar el logo como marca de agua en el PDF</span>
+          </label>
+          <div class="colores">
+            <label><input type="color" data-ruta="colores.marco"> Marco</label>
+            <label><input type="color" data-ruta="colores.borde"> Línea del marco</label>
+            <label><input type="color" data-ruta="colores.acento"> Color de la marca</label>
+          </div>
+        </div>
+
+        <div class="bloque">
+          <h2>Campos de la tabla</h2>
+          <p>“Media fila” pone dos campos lado a lado, como Entidad y Sede.</p>
+          <div id="editor-campos"></div>
+          <div class="fila-botones"><button id="btn-agregar-campo" class="boton pequeno">Agregar campo</button></div>
+        </div>
+
+        <div class="bloque">
+          <h2>Secciones de texto</h2>
+          <p>El alto es el tamaño mínimo del recuadro en el PDF, en milímetros.</p>
+          <div id="editor-secciones"></div>
+          <div class="fila-botones"><button id="btn-agregar-seccion" class="boton pequeno">Agregar sección</button></div>
+        </div>
+
+        <div class="bloque">
+          <h2>Firmas</h2>
+          <div class="rejilla">
+            <label class="campo"><span>Título firma del técnico</span><input type="text" data-ruta="firmas.tecnicoTitulo"></label>
+            <label class="campo"><span>Título firma del cliente</span><input type="text" data-ruta="firmas.clienteTitulo"></label>
+            <label class="campo"><span>Etiqueta nombre del cliente</span><input type="text" data-ruta="firmas.clienteNombreEtiqueta"></label>
+            <label class="campo"><span>Etiqueta documento del cliente</span><input type="text" data-ruta="firmas.clienteDocEtiqueta"></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== INFORMES ===================== -->
+      <div data-panel="informes" hidden>
+        <div class="bloque">
+          <h2>Informes recibidos</h2>
+          <p>Los últimos 300 informes sincronizados por los técnicos.</p>
+          <div class="fila-botones" style="margin-top:0; margin-bottom:12px">
+            <input type="text" id="buscar" placeholder="Buscar por número, entidad, equipo o técnico" style="flex:1; min-width:220px">
+            <button id="btn-csv" class="boton pequeno">Exportar a Excel (CSV)</button>
+          </div>
+          <div class="desplazable">
+            <table class="tabla-informes">
+              <thead><tr><th>N°</th><th>Fecha</th><th>Entidad</th><th>Equipo</th><th>Técnico</th><th></th></tr></thead>
+              <tbody id="cuerpo-informes"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== TÉCNICOS ===================== -->
+      <div data-panel="tecnicos" hidden>
+        <div class="bloque">
+          <h2 id="u-titulo">Crear usuario</h2>
+          <p id="u-ayuda">Se crea la cuenta y queda habilitado de una vez. Entrégale al técnico su correo y contraseña para que ingrese a la app.</p>
+          <form id="form-usuario" class="rejilla" novalidate>
+            <label class="campo"><span>Nombre completo</span><input type="text" id="u-nombre" autocomplete="off"></label>
+            <label class="campo"><span>Correo</span><input type="email" id="u-correo" autocomplete="off"></label>
+            <label class="campo" id="u-clave-caja"><span>Contraseña (mínimo 6 caracteres)</span><input type="text" id="u-clave" autocomplete="off"></label>
+            <label class="campo"><span>Prefijo (2 a 4 letras)</span><input type="text" id="u-prefijo" maxlength="4"></label>
+            <label class="campo"><span>Rol</span>
+              <select id="u-rol"><option value="tecnico">Técnico</option><option value="admin">Administrador</option></select></label>
+            <div class="campo" style="align-self:end; display:flex; gap:8px">
+              <button class="boton primario" style="flex:1" type="submit" id="u-guardar">Crear usuario</button>
+              <button class="boton" type="button" id="u-cancelar" hidden>Cancelar</button>
+            </div>
+          </form>
+          <details id="u-avanzado" style="margin-top:6px">
+            <summary class="nota" style="cursor:pointer">El correo ya tiene cuenta en Firebase</summary>
+            <p class="nota">Si la cuenta ya existía en Authentication, pega aquí su UID y la contraseña no se usa.</p>
+            <label class="campo"><span>UID</span><input type="text" id="u-uid" autocomplete="off"></label>
+          </details>
+        </div>
+        <div class="bloque">
+          <h2>Usuarios habilitados</h2>
+          <p>“Quitar acceso” impide que el usuario entre a la app. Sus informes se conservan.</p>
+          <div class="desplazable">
+            <table class="tabla-informes">
+              <thead><tr><th>Nombre</th><th>Correo</th><th>Prefijo</th><th>Rol</th><th></th></tr></thead>
+              <tbody id="cuerpo-usuarios"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/libs/firebase-app-compat.js"></script>
+  <script src="js/libs/firebase-auth-compat.js"></script>
+  <script src="js/libs/firebase-firestore-compat.js"></script>
+  <script src="js/libs/jspdf.umd.min.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/formato-base.js"></script>
+  <script src="js/comun.js"></script>
+  <script src="js/pdf.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

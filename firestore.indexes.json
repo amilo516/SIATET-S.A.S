@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "informes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tecnicoUid", "order": "ASCENDING" },
+        { "fieldPath": "creadoLocal", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
