@@ -40,6 +40,12 @@ const FORMATO_BASE = {
     { id: "repuestos",     titulo: "Suministro de repuestos",  alto: 22, obligatorio: false },
     { id: "observaciones", titulo: "Observaciones",            alto: 22, obligatorio: false }
   ],
+  // Registro fotográfico: máximo de fotos de "antes" y "después" (0 a 3)
+  fotos: {
+    activas: true,
+    maxAntes: 1,
+    maxDespues: 1
+  },
   firmas: {
     tecnicoTitulo: "TECNICO SIATET",
     clienteTitulo: "RECIBI CONFORME",

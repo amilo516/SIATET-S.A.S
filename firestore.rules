@@ -38,6 +38,28 @@ service cloud.firestore {
       allow read: if esAdmin() || (registrado() && resource.data.tecnicoUid == request.auth.uid);
       // Un informe firmado no se modifica. Solo el administrador puede anularlo o borrarlo.
       allow update, delete: if esAdmin();
+
+      // Fotos del informe (antes y después)
+      match /fotos/{fotoId} {
+        allow create: if registrado() && request.resource.data.tecnicoUid == request.auth.uid;
+        allow read: if esAdmin() || (registrado() && resource.data.tecnicoUid == request.auth.uid);
+        allow delete: if esAdmin();
+      }
+    }
+
+    // Sitios con código QR para el registro de horario
+    match /sitios/{id} {
+      allow read: if registrado();
+      allow write: if esAdmin();
+    }
+
+    // Marcaciones de entrada y salida
+    match /marcaciones/{id} {
+      // Cada persona crea sus marcaciones; el administrador puede agregar las que falten.
+      allow create: if esAdmin() || (registrado() && request.resource.data.tecnicoUid == request.auth.uid);
+      allow read: if esAdmin() || (registrado() && resource.data.tecnicoUid == request.auth.uid);
+      // Una marcación no se modifica desde la app. Solo el administrador puede corregirla o borrarla.
+      allow update, delete: if esAdmin();
     }
   }
 }

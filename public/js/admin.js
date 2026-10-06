@@ -27,9 +27,7 @@ $("#btn-salir").addEventListener("click", async () => {
 auth.onAuthStateChanged(async (usuario) => {
   admin.desuscribir.forEach((fn) => fn());
   admin.desuscribir = [];
-  $("#btn-salir").hidden = !usuario;
-
-  $("#btn-informe").hidden = !usuario;
+  $("#btn-menu").hidden = true;
   if (!usuario) {
     $("#pantalla-ingreso").hidden = false;
     $("#pantalla-panel").hidden = true;
@@ -50,23 +48,117 @@ auth.onAuthStateChanged(async (usuario) => {
 
   $("#pantalla-ingreso").hidden = true;
   $("#pantalla-panel").hidden = false;
+  $("#btn-menu").hidden = false;
+  menu.usuario(perfil.nombre || usuario.email, "admin");
+  irA("dashboard");
 
   admin.desuscribir.push(escucharFormatoVigente((f) => {
     admin.vigente = f;
-    $("#version-vigente").textContent = f.version;
     // Solo se recarga el editor si no hay cambios sin publicar
     if (!admin.editado) cargarEdicion(f);
   }));
   admin.desuscribir.push(escucharInformesAdmin());
   admin.desuscribir.push(escucharUsuarios());
+  admin.desuscribir.push(iniciarHorarioAdmin());
 });
 
-// ---------- Pestañas ----------
-$(".pestanas").addEventListener("click", (e) => {
-  const boton = e.target.closest("[data-pestana]");
+// ---------- Menú y secciones ----------
+const menu = iniciarMenu(irA);
+
+function irA(seccion) {
+  const pendiente = SECCIONES_PENDIENTES[seccion];
+  if (pendiente) {
+    $("#sec-titulo").textContent = pendiente.titulo;
+    $("#sec-texto").textContent = pendiente.texto;
+  }
+  const panel = pendiente ? "proximamente" : seccion;
+  $$("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== panel));
+  menu.marcar(seccion);
+  window.scrollTo(0, 0);
+}
+
+// Botones dentro de las secciones que llevan a otra ("Ver todos", "Volver")
+$("#pantalla-panel").addEventListener("click", (e) => {
+  const boton = e.target.closest("[data-ir]");
+  if (boton) irA(boton.dataset.ir);
+});
+
+// =====================================================================
+//  DASHBOARD
+// =====================================================================
+const LIMITE_INFORMES = 300;   // informes recientes que carga el panel
+const NOMBRES_DIA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const NOMBRES_MES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio",
+  "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+function claveDia(fecha) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${fecha.getFullYear()}-${p(fecha.getMonth() + 1)}-${p(fecha.getDate())}`;
+}
+
+function pintarTablero() {
+  const ahora = new Date();
+  const hoy = claveDia(ahora);
+  const mes = hoy.slice(0, 7);
+  // Día en que se guardó cada informe, en la hora del dispositivo
+  const dias = admin.informes.map((i) => (i.creadoLocal ? claveDia(new Date(i.creadoLocal)) : ""));
+  const delMes = admin.informes.filter((_, k) => dias[k].startsWith(mes));
+  // Si los 300 informes cargados son todos de este mes, puede haber más
+  const hayMas = admin.informes.length >= LIMITE_INFORMES && delMes.length === admin.informes.length;
+
+  $("#d-mes").textContent = `${NOMBRES_MES[ahora.getMonth()]} de ${ahora.getFullYear()}`;
+  $("#d-hoy").textContent = dias.filter((d) => d === hoy).length;
+  $("#d-total-mes").textContent = delMes.length + (hayMas ? "+" : "");
+  $("#d-tecnicos").textContent = admin.usuarios.filter((u) => u.rol !== "admin").length;
+
+  // Informes por día, últimos 7 días
+  const semana = [];
+  for (let k = 6; k >= 0; k--) {
+    const fecha = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - k);
+    const clave = claveDia(fecha);
+    semana.push({ nombre: k === 0 ? "Hoy" : NOMBRES_DIA[fecha.getDay()], n: dias.filter((d) => d === clave).length, hoy: k === 0 });
+  }
+  const mayor = Math.max(1, ...semana.map((d) => d.n));
+  $("#d-semana").textContent = `Últimos 7 días · ${semana.reduce((t, d) => t + d.n, 0)}`;
+  $("#d-grafica").innerHTML = semana.map((d) => `
+    <div class="grafica-dia${d.hoy ? " hoy" : ""}">
+      <span class="grafica-valor">${d.n}</span>
+      <span class="grafica-palo" style="height:${Math.max(2, Math.round((d.n / mayor) * 110))}px"></span>
+      <span class="grafica-nombre">${d.nombre}</span>
+    </div>`).join("");
+
+  // Informes por técnico en el mes (incluye a los habilitados que no han hecho ninguno)
+  const porTecnico = new Map();
+  admin.usuarios.filter((u) => u.rol !== "admin").forEach((u) => porTecnico.set(u.uid, { nombre: u.nombre, n: 0 }));
+  delMes.forEach((i) => {
+    const fila = porTecnico.get(i.tecnicoUid)
+      || { nombre: admin.usuarios.find((u) => u.uid === i.tecnicoUid)?.nombre || i.tecnicoNombres || i.tecnicoCorreo || "Sin nombre", n: 0 };
+    fila.n++;
+    porTecnico.set(i.tecnicoUid, fila);
+  });
+  const filas = [...porTecnico.values()].sort((a, b) => b.n - a.n);
+  const mayorTecnico = Math.max(1, ...filas.map((f) => f.n));
+  $("#d-por-tecnico").innerHTML = filas.length ? filas.map((f) => `
+    <div class="avance">
+      <div class="avance-texto"><span>${escaparHtml(f.nombre)}</span><strong>${f.n}</strong></div>
+      <div class="avance-pista"><div class="avance-relleno" style="width:${Math.round((f.n / mayorTecnico) * 100)}%"></div></div>
+    </div>`).join("") : `<p class="vacio">Aún no hay técnicos registrados.</p>`;
+
+  // Últimos informes recibidos
+  const ultimos = admin.informes.slice(0, 5);
+  $("#d-ultimos").innerHTML = ultimos.length ? ultimos.map((i) => `
+    <li><button class="informe-item" data-pdf="${escaparHtml(i.id)}">
+      <span class="num">${escaparHtml(i.numero)} · ${escaparHtml(i.campos?.entidad || "Sin entidad")}</span>
+      <span class="chip sincronizado">Descargar PDF</span>
+      <span class="det">${escaparHtml([fechaLegible(i.campos?.fecha), i.campos?.equipo, i.tecnicoNombres].filter(Boolean).join(" · "))}</span>
+    </button></li>`).join("") : `<li class="vacio">Aún no se ha recibido ningún informe.</li>`;
+}
+
+$("#d-ultimos").addEventListener("click", (e) => {
+  const boton = e.target.closest("[data-pdf]");
   if (!boton) return;
-  $$(".pestanas button").forEach((b) => b.setAttribute("aria-selected", String(b === boton)));
-  $$("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== boton.dataset.pestana));
+  const informe = admin.informes.find((i) => i.id === boton.dataset.pdf);
+  if (informe) descargarPdf(informe).catch((err) => aviso(err.message, "error"));
 });
 
 // =====================================================================
@@ -86,7 +178,7 @@ function cargarEdicion(formato) {
   admin.edicion = copiaProfunda(formato);
   admin.editado = false;
   // Completa propiedades que falten en versiones antiguas
-  for (const k of ["empresa", "colores", "firmas"]) {
+  for (const k of ["empresa", "colores", "firmas", "fotos"]) {
     admin.edicion[k] = { ...FORMATO_BASE[k], ...(admin.edicion[k] || {}) };
   }
   pintarEditor();
@@ -109,7 +201,9 @@ $('[data-panel="formato"]').addEventListener("input", () => (admin.editado = tru
 
 $$("[data-ruta]").forEach((el) => {
   el.addEventListener("input", () => {
-    escribirRuta(admin.edicion, el.dataset.ruta, el.type === "checkbox" ? el.checked : el.value);
+    const valor = el.type === "checkbox" ? el.checked
+      : el.type === "number" ? Math.max(0, Math.min(3, Number(el.value) || 0)) : el.value;
+    escribirRuta(admin.edicion, el.dataset.ruta, valor);
   });
 });
 
@@ -250,8 +344,23 @@ function informeDeEjemplo(formato) {
   });
   const secciones = {};
   formato.secciones.forEach((s) => (secciones[s.id] = `Texto de ejemplo para ${s.titulo.toLowerCase()}.`));
+  // Fotos grises de ejemplo para ver cómo queda la página de fotos
+  const ejemplo = (texto) => {
+    const c = document.createElement("canvas");
+    c.width = 640; c.height = 480;
+    const x = c.getContext("2d");
+    x.fillStyle = "#C9CEC8"; x.fillRect(0, 0, 640, 480);
+    x.fillStyle = "#2F3336"; x.font = "bold 40px sans-serif"; x.textAlign = "center";
+    x.fillText(texto, 320, 250);
+    return c.toDataURL("image/jpeg", 0.8);
+  };
+  const fotos = [];
+  if (formato.fotos?.activas) {
+    for (let i = 0; i < (formato.fotos.maxAntes || 0); i++) fotos.push({ tipo: "antes", data: ejemplo("Foto antes " + (i + 1)), descripcion: "Descripción de ejemplo" });
+    for (let i = 0; i < (formato.fotos.maxDespues || 0); i++) fotos.push({ tipo: "despues", data: ejemplo("Foto después " + (i + 1)), descripcion: "Descripción de ejemplo" });
+  }
   return {
-    numero: "EJ-0001", campos, secciones,
+    numero: "EJ-0001", campos, secciones, fotos,
     tecnicoNombres: "Nombre del técnico", clienteNombre: "Nombre del cliente", clienteDoc: "1.234.567",
     formatoVersion: formato.version
   };
@@ -322,10 +431,11 @@ $("#btn-base").addEventListener("click", () => {
 //  INFORMES
 // =====================================================================
 function escucharInformesAdmin() {
-  return db.collection("informes").orderBy("creadoLocal", "desc").limit(300)
+  return db.collection("informes").orderBy("creadoLocal", "desc").limit(LIMITE_INFORMES)
     .onSnapshot((snap) => {
       admin.informes = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
       pintarInformes();
+      pintarTablero();
     }, (err) => aviso("No se pudieron cargar los informes: " + err.code, "error"));
 }
 
@@ -365,7 +475,13 @@ $("#cuerpo-informes").addEventListener("click", async (e) => {
     const informe = admin.informes.find((i) => i.id === idBorrar);
     if (!confirm(`¿Borrar definitivamente el informe ${informe.numero}? Esta acción no se puede deshacer.`)) return;
     try {
-      await db.collection("informes").doc(idBorrar).delete();
+      // Primero se borran sus fotos y luego el informe
+      const ref = db.collection("informes").doc(idBorrar);
+      const fotos = await ref.collection("fotos").get();
+      const lote = db.batch();
+      fotos.docs.forEach((d) => lote.delete(d.ref));
+      lote.delete(ref);
+      await lote.commit();
       aviso(`Informe ${informe.numero} borrado.`, "ok");
     } catch (err) {
       aviso("No se pudo borrar: " + err.message, "error");
@@ -450,6 +566,9 @@ function escucharUsuarios() {
   return db.collection("usuarios").onSnapshot((snap) => {
     admin.usuarios = snap.docs.map((d) => ({ ...d.data(), uid: d.id }))
       .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+    pintarTablero();
+    pintarPersonasHorario();
+    pintarMarcaciones();
     const yo = auth.currentUser?.uid;
     $("#cuerpo-usuarios").innerHTML = admin.usuarios.map((u) => `
       <tr>

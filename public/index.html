@@ -14,12 +14,54 @@
   <link rel="stylesheet" href="css/estilos.css">
 </head>
 <body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-cerrar" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-tablero" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="10" rx="1.5"/><rect x="13" y="3" width="8" height="6" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="15" width="8" height="6" rx="1.5"/></symbol>
+    <symbol id="i-informe" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9 14h6"/></symbol>
+    <symbol id="i-escudo" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.500-3.200 8-8 9-4.800-1-8-4.500-8-9V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+    <symbol id="i-reloj" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-flecha" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7h-4M14 21v-1"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></symbol>
+    <symbol id="i-lapiz" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></symbol>
+    <symbol id="i-personas" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.500 20a6.500 6.500 0 0 1 13 0M16 4.800a3.500 3.500 0 0 1 0 6.400M18 14.500a6.500 6.500 0 0 1 3.500 5.500"/></symbol>
+    <symbol id="i-barras" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16M8 16v-4M12 16V8M16 16v-6"/></symbol>
+    <symbol id="i-salir" viewBox="0 0 24 24"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9"/></symbol>
+    <symbol id="i-mas" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  </svg>
   <header class="barra">
+    <button id="btn-menu" class="boton-menu" type="button" aria-label="Abrir menú" aria-controls="menu" aria-expanded="false" hidden><svg class="icono" aria-hidden="true"><use href="#i-menu"/></svg></button>
     <div class="marca"><span class="s">S</span>IATET<small>S.A.S.</small></div>
     <span id="estado-red" class="estado-red">En línea</span>
-    <a id="btn-panel" class="boton-barra" href="admin.html" hidden style="text-decoration:none">Panel</a>
     <button id="btn-cancelar" class="boton-barra" hidden>Cancelar</button>
   </header>
+  <div id="menu-fondo" class="menu-fondo" hidden></div>
+  <nav id="menu" class="menu" aria-label="Menú principal">
+    <div class="menu-cabeza">
+      <div class="menu-cabeza-fila">
+        <div class="marca"><span class="s">S</span>IATET</div>
+        <button id="menu-cerrar" class="boton-menu" type="button" aria-label="Cerrar menú"><svg class="icono" aria-hidden="true"><use href="#i-cerrar"/></svg></button>
+      </div>
+      <div class="menu-usuario">
+        <span class="menu-iniciales" id="menu-iniciales" aria-hidden="true"></span>
+        <div><div class="menu-nombre" id="menu-nombre"></div><div class="menu-rol" id="menu-rol"></div></div>
+      </div>
+    </div>
+    <div class="menu-lista">
+      <button class="menu-item" type="button" data-ir="inicio"><svg class="icono" aria-hidden="true"><use href="#i-tablero"/></svg><span>Dashboard</span></button>
+      <button class="menu-item" type="button" data-ir="nuevo"><svg class="icono" aria-hidden="true"><use href="#i-informe"/></svg><span>Nuevo informe</span></button>
+      <button class="menu-item" type="button" data-submenu="sub-horario" aria-expanded="false"><svg class="icono" aria-hidden="true"><use href="#i-reloj"/></svg><span>Registro de horario</span><svg class="icono" aria-hidden="true"><use href="#i-flecha"/></svg></button>
+      <div id="sub-horario" class="menu-sub" hidden>
+        <button class="menu-item" type="button" data-ir="horario-qr"><svg class="icono" aria-hidden="true"><use href="#i-qr"/></svg><span>Marcar con código QR</span></button>
+        <button class="menu-item" type="button" data-ir="horario-manual"><svg class="icono" aria-hidden="true"><use href="#i-check"/></svg><span>Marcar sin QR</span></button>
+      </div>
+      <a id="btn-panel" class="menu-item" href="admin.html" hidden><svg class="icono" aria-hidden="true"><use href="#i-lapiz"/></svg><span>Panel de administración</span></a>
+    </div>
+    <div class="menu-pie">
+      <button id="btn-salir" class="menu-item salir" type="button"><svg class="icono" aria-hidden="true"><use href="#i-salir"/></svg><span>Cerrar sesión</span></button>
+    </div>
+  </nav>
   <div id="barra-actualizacion" hidden>
     <span>Hay una nueva versión de la app.</span>
     <button type="button">Actualizar</button>
@@ -44,18 +86,60 @@
 
     <!-- Inicio -->
     <section id="pantalla-inicio" hidden>
-      <p class="saludo" id="saludo"></p>
-      <p class="sub">Llena el informe en el sitio, pide la firma y descárgalo. Se guarda en la base de datos apenas haya internet.</p>
-      <button id="btn-nuevo" class="boton primario ancho">Nuevo informe</button>
+      <h1 class="saludo" id="saludo"></h1>
+      <p class="sub">Este es el registro de los informes que has hecho.</p>
+      <div class="tarjetas">
+        <div class="tarjeta destacada"><span class="tarjeta-titulo">Total</span><strong id="t-total">0</strong><span class="tarjeta-pie">informes</span></div>
+        <div class="tarjeta"><span class="tarjeta-titulo">Este mes</span><strong id="t-mes">0</strong><span class="tarjeta-pie">informes</span></div>
+        <div class="tarjeta"><span class="tarjeta-titulo">Hoy</span><strong id="t-hoy">0</strong><span class="tarjeta-pie">informes</span></div>
+      </div>
+      <button id="btn-nuevo" class="boton primario ancho"><svg class="icono" aria-hidden="true"><use href="#i-mas"/></svg>Nuevo informe</button>
       <button id="btn-instalar" class="boton ancho instalar" hidden>Instalar la app en este dispositivo</button>
       <p id="nota-ios" class="nota" hidden>Para instalar en iPhone: toca el botón Compartir de Safari y luego “Agregar a inicio”.</p>
 
+      <h2 class="titulo-seccion">Historial</h2>
       <div class="resumen-sync" id="resumen-sync"></div>
       <ul class="lista" id="lista-informes"></ul>
+    </section>
 
-      <div class="pie-app">
-        <span id="info-formato"></span>
-        <button id="btn-salir" class="boton pequeno">Cerrar sesión</button>
+    <!-- Registro de horario -->
+    <section id="pantalla-horario" hidden>
+      <h1 class="saludo" id="h-titulo">Registro de horario</h1>
+      <p class="sub" id="h-fecha"></p>
+      <div class="tarjetas dos">
+        <div class="tarjeta"><span class="tarjeta-titulo">Entrada</span><strong id="h-entrada">Sin marcar</strong></div>
+        <div class="tarjeta"><span class="tarjeta-titulo">Salida</span><strong id="h-salida">Sin marcar</strong></div>
+      </div>
+      <p class="estado-horario" id="h-estado"></p>
+
+      <div id="h-modo-qr">
+        <button id="h-escanear" class="boton primario ancho" type="button">Escanear código</button>
+        <div id="h-camara" class="camara" hidden>
+          <video id="h-video" playsinline muted></video>
+          <div class="camara-marco" aria-hidden="true"></div>
+          <button id="h-cancelar-camara" class="boton pequeno" type="button">Cancelar</button>
+        </div>
+        <p class="nota">Apunta la cámara al código QR que está pegado en el sitio. La marcación se guarda sola al leerlo.</p>
+      </div>
+
+      <form id="h-modo-manual" novalidate hidden>
+        <label class="campo"><span>Lugar o motivo <span class="req">*</span></span>
+          <input type="text" id="h-nota" maxlength="120" placeholder="Ej.: Sede del cliente, no hay código QR"></label>
+        <button id="h-marcar" class="boton primario ancho" type="submit">Marcar</button>
+        <p class="nota">Usa esta opción cuando en el sitio no haya código QR. El administrador verá que se marcó sin QR.</p>
+      </form>
+
+      <h2 class="titulo-seccion">Mis marcaciones recientes</h2>
+      <ul class="lista" id="h-lista"></ul>
+    </section>
+
+    <!-- Secciones que todavía no están disponibles -->
+    <section id="pantalla-seccion" hidden>
+      <div class="proximamente">
+        <span class="etiqueta">Próximamente</span>
+        <h1 id="sec-titulo"></h1>
+        <p id="sec-texto"></p>
+        <button id="btn-sec-volver" class="boton" type="button">Volver al dashboard</button>
       </div>
     </section>
 
@@ -103,10 +187,13 @@
   <script src="js/libs/firebase-firestore-compat.js"></script>
   <script src="js/libs/jspdf.umd.min.js"></script>
   <script src="js/libs/signature_pad.umd.min.js"></script>
+  <script src="js/libs/jsqr.min.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/formato-base.js"></script>
   <script src="js/comun.js"></script>
+  <script src="js/menu.js"></script>
   <script src="js/pdf.js"></script>
+  <script src="js/horario.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

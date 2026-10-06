@@ -1,7 +1,6 @@
 // =====================================================================
 //  FUNCIONES COMPARTIDAS (app del técnico y panel de administración)
 // =====================================================================
-
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
@@ -124,14 +123,58 @@ function nombreArchivoPdf(informe) {
   return `Informe_${informe.numero}${entidad ? "_" + entidad : ""}.pdf`;
 }
 
+// ---------- Fotos ----------
+// Reduce la foto a máximo 1024 px y la guarda como JPEG (~100-150 KB)
+function comprimirFoto(archivo, maximo = 1280) {
+  // Reduce la foto hasta que pese ~150 KB o menos (una foto de celular pesa 3-5 MB)
+  return new Promise((resolver, rechazar) => {
+    const img = new Image();
+    img.onload = () => {
+      let esc = Math.min(1, maximo / Math.max(img.width, img.height));
+      let calidad = 0.72, url = "";
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      for (let intento = 0; intento < 6; intento++) {
+        canvas.width = Math.round(img.width * esc);
+        canvas.height = Math.round(img.height * esc);
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        url = canvas.toDataURL("image/jpeg", calidad);
+        if (url.length <= 200000) break;          // 200.000 caracteres ≈ 150 KB
+        if (calidad > 0.56) calidad -= 0.08; else esc *= 0.85;
+      }
+      URL.revokeObjectURL(img.src);
+      resolver(url);
+    };
+    img.onerror = rechazar;
+    img.src = URL.createObjectURL(archivo);
+  });
+}
+
+// Las fotos se guardan aparte, en informes/{id}/fotos. Si el informe no
+// las trae en memoria, se descargan (o se leen del celular sin internet).
+async function cargarFotos(informe) {
+  if (Array.isArray(informe.fotos)) return informe.fotos;
+  if (!informe.numFotos) return [];
+  // El filtro por técnico es obligatorio: las reglas solo permiten leer las fotos propias
+  const snap = await db.collection("informes").doc(informe.id).collection("fotos")
+    .where("tecnicoUid", "==", informe.tecnicoUid).get();
+  informe.fotos = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.orden || 0) - (b.orden || 0));
+  return informe.fotos;
+}
+
 async function descargarPdf(informe) {
   const formato = await obtenerFormato(informe.formatoVersion);
+  await cargarFotos(informe);
   const doc = generarPDF(informe, formato);
   doc.save(nombreArchivoPdf(informe));
 }
 
 async function compartirPdf(informe) {
   const formato = await obtenerFormato(informe.formatoVersion);
+  await cargarFotos(informe);
   const doc = generarPDF(informe, formato);
   const archivo = new File([doc.output("blob")], nombreArchivoPdf(informe), { type: "application/pdf" });
   if (navigator.canShare && navigator.canShare({ files: [archivo] })) {

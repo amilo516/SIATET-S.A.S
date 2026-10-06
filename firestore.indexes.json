@@ -4,8 +4,28 @@
       "collectionGroup": "informes",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "tecnicoUid", "order": "ASCENDING" },
-        { "fieldPath": "creadoLocal", "order": "DESCENDING" }
+        {
+          "fieldPath": "tecnicoUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "creadoLocal",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "marcaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tecnicoUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fechaLocal",
+          "order": "DESCENDING"
+        }
       ]
     }
   ],

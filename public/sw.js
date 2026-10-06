@@ -4,7 +4,7 @@
 //  CADA VEZ QUE CAMBIES EL CÓDIGO DE LA APP, sube el número de VERSION
 //  (por ejemplo 1.0.1). Así los celulares detectan la actualización.
 // =====================================================================
-const VERSION = "1.0.3";
+const VERSION = "1.3.2";
 const CACHE = `siatet-app-${VERSION}`;
 
 const ARCHIVOS = [
@@ -26,10 +26,15 @@ const ARCHIVOS = [
   "./js/libs/firebase-firestore-compat.js",
   "./js/libs/jspdf.umd.min.js",
   "./js/libs/signature_pad.umd.min.js",
+  "./js/libs/jsqr.min.js",
+  "./js/libs/qrcode.min.js",
   "./js/firebase-config.js",
   "./js/formato-base.js",
   "./js/comun.js",
+  "./js/menu.js",
   "./js/pdf.js",
+  "./js/horario.js",
+  "./js/horario-admin.js",
   "./js/app.js",
   "./js/admin.js"
 ];

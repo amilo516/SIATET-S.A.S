@@ -4,7 +4,6 @@
 //  usando la versión del formato con la que se hizo el informe.
 //  Funciona sin internet.
 // =====================================================================
-
 function generarPDF(informe, formato) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "mm", format: "letter" });
@@ -257,12 +256,52 @@ function generarPDF(informe, formato) {
     doc.text(doc.splitTextToSize(cliente.join("\n"), ANC), xD, yL + 4.5, { lineHeightFactor: 1.25 });
   }
 
+  // ---------- Registro fotográfico (página aparte) ----------
+  function registroFotografico() {
+    const fotos = informe.fotos || [];
+    if (!fotos.length) return;
+    const antes = fotos.filter((f) => f.tipo === "antes");
+    const despues = fotos.filter((f) => f.tipo === "despues");
+    const filas = Math.max(antes.length, despues.length);
+    const COL = (ANCHO - 6) / 2, ALTO_FOTO = 62, ALTO_FILA = ALTO_FOTO + 12;
+
+    let y = nuevaPagina() + 4;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(OSCURO);
+    doc.text("REGISTRO FOTOGRÁFICO", W / 2, y, { align: "center" });
+    y += 8;
+    doc.setFontSize(10);
+    doc.text("ANTES", X0 + COL / 2, y, { align: "center" });
+    doc.text("DESPUÉS", X0 + COL + 6 + COL / 2, y, { align: "center" });
+    y += 3;
+
+    for (let i = 0; i < filas; i++) {
+      if (y + ALTO_FILA > LIMITE) y = nuevaPagina() + 4;
+      [[antes[i], X0], [despues[i], X0 + COL + 6]].forEach(([f, x]) => {
+        doc.setDrawColor(OSCURO);
+        doc.setLineWidth(0.3);
+        doc.rect(x, y, COL, ALTO_FILA);
+        if (!f) return;
+        imagenAjustada(f.data, x + 2, y + 2, COL - 4, ALTO_FOTO, "centro");
+        if (f.descripcion) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8.5);
+          doc.setTextColor(OSCURO);
+          doc.text(doc.splitTextToSize(limpiar(f.descripcion), COL - 4).slice(0, 2), x + 2, y + ALTO_FOTO + 6);
+        }
+      });
+      y += ALTO_FILA + 4;
+    }
+  }
+
   // ---------- Armar el documento ----------
   marco();
   let y = encabezado();
   y = tabla(y);
   y = secciones(y);
   bloqueFirmas(y);
+  registroFotografico();
 
   const total = doc.getNumberOfPages();
   if (total > 1) {

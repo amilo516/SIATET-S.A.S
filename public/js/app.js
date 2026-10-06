@@ -1,7 +1,6 @@
 // =====================================================================
 //  APP DEL TÉCNICO
 // =====================================================================
-
 const estado = {
   usuario: null,
   perfil: null,
@@ -10,14 +9,41 @@ const estado = {
   informes: [],              // informes que vienen de la base de datos (o su copia local)
   respaldos: {},             // copia de seguridad hasta que el servidor confirme
   firmas: {},
+  fotos: [],                 // fotos del informe que se está llenando
   ultimoGuardado: null,
   desuscribir: []
 };
 
-const PANTALLAS = ["cargando", "ingreso", "inicio", "formulario", "guardado"];
+// ---------------------------------------------------------------------
+//  Menú desplegable
+// ---------------------------------------------------------------------
+const menu = iniciarMenu((destino) => {
+  if (destino === "inicio") return mostrar("inicio");
+  if (destino === "nuevo") return abrirFormulario();
+  if (destino === "horario-qr") return abrirHorario("qr");
+  if (destino === "horario-manual") return abrirHorario("manual");
+  mostrarSeccion(destino);
+});
+
+function mostrarSeccion(nombre) {
+  const seccion = SECCIONES_PENDIENTES[nombre];
+  if (!seccion) return mostrar("inicio");
+  $("#sec-titulo").textContent = seccion.titulo;
+  $("#sec-texto").textContent = seccion.texto;
+  mostrar("seccion");
+  menu.marcar(nombre);
+}
+$("#btn-sec-volver").addEventListener("click", () => mostrar("inicio"));
+
+const PANTALLAS = ["cargando", "ingreso", "inicio", "formulario", "guardado", "seccion", "horario"];
 function mostrar(nombre) {
   PANTALLAS.forEach((p) => ($(`#pantalla-${p}`).hidden = p !== nombre));
   $("#btn-cancelar").hidden = nombre !== "formulario";
+  // Mientras se llena un informe no hay menú: se sale con "Cancelar" o guardando
+  $("#btn-menu").hidden = !["inicio", "guardado", "seccion", "horario"].includes(nombre);
+  detenerCamara();   // la cámara del registro de horario no sigue encendida en otra pantalla
+  menu.cerrar();
+  menu.marcar(nombre === "inicio" ? "inicio" : "");
   window.scrollTo(0, 0);
   if (nombre === "formulario") requestAnimationFrame(ajustarLienzos);
 }
@@ -32,7 +58,6 @@ $("#form-ingreso").addEventListener("submit", async (e) => {
   e.preventDefault();
   const correo = $("#ing-correo").value.trim();
   const clave = $("#ing-clave").value;
-  if (!navigator.onLine) return aviso("Para ingresar la primera vez necesitas internet.", "error");
   try {
     await auth.signInWithEmailAndPassword(correo, clave);
   } catch (err) {
@@ -40,7 +65,8 @@ $("#form-ingreso").addEventListener("submit", async (e) => {
       "auth/invalid-credential": "Correo o contraseña incorrectos.",
       "auth/wrong-password": "Correo o contraseña incorrectos.",
       "auth/user-not-found": "Ese correo no está registrado.",
-      "auth/too-many-requests": "Demasiados intentos. Espera unos minutos."
+      "auth/too-many-requests": "Demasiados intentos. Espera unos minutos.",
+      "auth/network-request-failed": "No hay conexión con el servidor. Para ingresar la primera vez necesitas internet: revisa los datos o el Wi-Fi e intenta de nuevo."
     };
     aviso(mensajes[err.code] || "No se pudo ingresar: " + err.message, "error");
   }
@@ -80,12 +106,13 @@ auth.onAuthStateChanged(async (usuario) => {
   $("#btn-panel").hidden = estado.perfil.rol !== "admin";
   estado.respaldos = leerRespaldos();
   $("#saludo").textContent = `Hola, ${estado.perfil.nombre.split(" ")[0]}`;
+  menu.usuario(estado.perfil.nombre, estado.perfil.rol);
 
   estado.desuscribir.push(escucharFormatoVigente((f) => {
     estado.formato = f;
-    $("#info-formato").textContent = `Formato versión ${f.version}`;
   }));
   estado.desuscribir.push(escucharInformes());
+  estado.desuscribir.push(escucharHorario());
 
   revisarRespaldos();
   mostrar("inicio");
@@ -129,7 +156,7 @@ function escucharInformes() {
     pintarLista();
   };
 
-  const conOrden = base.orderBy("creadoLocal", "desc").limit(60);
+  const conOrden = base.orderBy("creadoLocal", "desc").limit(LIMITE_LISTA);
   desuscribir = conOrden.onSnapshot({ includeMetadataChanges: true }, alRecibir, (err) => {
     // Si el índice aún no existe se usa la consulta simple
     console.warn("Consulta ordenada no disponible:", err.code);
@@ -147,8 +174,61 @@ function listaCompleta() {
     .sort((a, b) => (b.creadoLocal || "").localeCompare(a.creadoLocal || ""));
 }
 
+// ---------------------------------------------------------------------
+//  Dashboard del técnico: total, este mes y hoy
+// ---------------------------------------------------------------------
+const LIMITE_LISTA = 60;   // informes recientes que se mantienen en el celular
+
+function pintarTablero(lista) {
+  const ahora = new Date();
+  const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).toISOString();
+  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1).toISOString();
+  const desde = (fecha) => lista.filter((i) => (i.creadoLocal || "") >= fecha).length;
+
+  // Los informes se numeran en orden por técnico, así que el número más
+  // alto es el total que ha hecho (aunque en el celular solo estén los recientes).
+  const total = Math.max(siguienteNumero().n - 1, lista.length);
+  let mes = String(desde(inicioMes));
+
+  // Si los informes recientes son todos de este mes, puede haber más que
+  // no están en el celular. Se calcula con el último número del mes anterior.
+  const hayMasEnElMes = estado.informes.length >= LIMITE_LISTA && desde(inicioMes) === lista.length;
+  if (hayMasEnElMes) {
+    const clave = `base_mes_${estado.usuario.uid}_${inicioMes.slice(0, 7)}`;
+    const base = localStorage.getItem(clave);
+    if (base !== null) mes = String(total - Number(base));
+    else {
+      mes += "+";
+      buscarBaseDelMes(clave, inicioMes);
+    }
+  }
+
+  $("#t-total").textContent = total;
+  $("#t-mes").textContent = mes;
+  $("#t-hoy").textContent = desde(inicioHoy);
+}
+
+let buscandoBase = false;
+async function buscarBaseDelMes(clave, inicioMes) {
+  if (buscandoBase || !navigator.onLine) return;
+  buscandoBase = true;
+  try {
+    const snap = await db.collection("informes")
+      .where("tecnicoUid", "==", estado.usuario.uid)
+      .where("creadoLocal", "<", inicioMes)
+      .orderBy("creadoLocal", "desc").limit(1).get();
+    const anterior = snap.empty ? null : /-(\d+)$/.exec(snap.docs[0].data().numero || "");
+    localStorage.setItem(clave, anterior ? anterior[1] : "0");
+    pintarLista();
+  } catch (e) {
+    console.warn("No se pudo calcular el total del mes:", e.code);
+  }
+  buscandoBase = false;
+}
+
 function pintarLista() {
   const lista = listaCompleta();
+  pintarTablero(lista);
   const pendientes = lista.filter((i) => i._pendiente).length;
   $("#resumen-sync").textContent = lista.length
     ? `${lista.length} informe(s) recientes${pendientes ? ` · ${pendientes} por enviar` : " · todos enviados"}`
@@ -218,10 +298,25 @@ async function revisarRespaldos() {
 window.addEventListener("online", () => setTimeout(revisarRespaldos, 3000));
 
 function enviarInforme(informe) {
-  const { id, _pendiente, ...datos } = informe;
+  const { id, _pendiente, fotos = [], ...datos } = informe;
+  datos.numFotos = fotos.length;
   datos.creadoServidor = firebase.firestore.FieldValue.serverTimestamp();
+
+  // El informe y sus fotos se envían juntos en un lote: llegan todos o ninguno.
+  // Cada foto va en su propio documento (informes/{id}/fotos/{foto}).
+  const ref = db.collection("informes").doc(id);
+  const lote = db.batch();
+  lote.set(ref, datos);
+  fotos.forEach((f, i) => lote.set(ref.collection("fotos").doc(f.id), {
+    tipo: f.tipo,
+    data: f.data,
+    descripcion: f.descripcion || "",
+    orden: i,
+    tecnicoUid: datos.tecnicoUid
+  }));
+
   // No se espera la respuesta: sin internet queda en cola y se sube sola.
-  return db.collection("informes").doc(id).set(datos)
+  return lote.commit()
     .then(() => {
       quitarRespaldo(id);
       pintarLista();
@@ -287,6 +382,7 @@ function construirFormulario(formato, datos = {}) {
     <div class="hoja-numero" id="hoja-numero"></div>
     <div class="tabla-datos">${campos}</div>
     ${secciones}
+    ${bloqueFotos(formato)}
     <div class="firmas">
       <div class="firma">
         <h3>${escaparHtml(f.tecnicoTitulo)}</h3>
@@ -309,6 +405,8 @@ function construirFormulario(formato, datos = {}) {
   $("#hoja-numero").textContent = `N° ${siguienteNumero().numero}`;
   crearFirma("tecnico", datos.firmaTecnicoPuntos);
   crearFirma("cliente", datos.firmaClientePuntos);
+  estado.fotos = Array.isArray(datos.fotos) ? datos.fotos : [];
+  pintarFotos();
 }
 
 function crearFirma(quien, puntos) {
@@ -351,6 +449,74 @@ $("#hoja").addEventListener("click", (e) => {
   guardarBorrador();
 });
 
+// ---------------------------------------------------------------------
+//  Registro fotográfico
+// ---------------------------------------------------------------------
+function bloqueFotos(formato) {
+  // Los formatos publicados antes de existir las fotos no traen esta parte:
+  // en ese caso se usa la configuración base (1 foto de antes y 1 de después).
+  const cfg = formato.fotos || FORMATO_BASE.fotos;
+  if (!cfg || !cfg.activas) return "";
+  const grupo = (tipo, titulo, max) => max > 0 ? `
+    <div class="fotos-grupo" data-tipo="${tipo}" data-max="${max}">
+      <h4>${titulo} <span class="nota">(máximo ${max})</span></h4>
+      <div class="fotos-lista"></div>
+      <label class="boton pequeno boton-foto">Tomar o elegir foto
+        <input type="file" accept="image/*" data-foto="${tipo}" hidden>
+      </label>
+    </div>` : "";
+  return `<div class="fotos-bloque">
+      <h3>REGISTRO FOTOGRÁFICO</h3>
+      ${grupo("antes", "Antes del servicio", Number(cfg.maxAntes) || 0)}
+      ${grupo("despues", "Después del servicio", Number(cfg.maxDespues) || 0)}
+    </div>`;
+}
+
+function pintarFotos() {
+  $$(".fotos-grupo").forEach((grupo) => {
+    const tipo = grupo.dataset.tipo;
+    const max = Number(grupo.dataset.max);
+    const delTipo = estado.fotos.filter((f) => f.tipo === tipo);
+    $(".fotos-lista", grupo).innerHTML = delTipo.map((f) => `
+      <div class="foto" data-id="${f.id}">
+        <img src="${f.data}" alt="Foto ${tipo === "antes" ? "antes" : "después"} del servicio">
+        <input type="text" data-foto-desc="${f.id}" placeholder="Descripción (opcional)" value="${escaparHtml(f.descripcion || "")}">
+        <button type="button" class="boton pequeno peligro" data-foto-quitar="${f.id}">Quitar</button>
+      </div>`).join("");
+    $(".boton-foto", grupo).hidden = delTipo.length >= max;
+  });
+}
+
+$("#hoja").addEventListener("change", async (e) => {
+  const tipo = e.target.dataset?.foto;
+  if (!tipo || !e.target.files[0]) return;
+  const archivo = e.target.files[0];
+  e.target.value = "";
+  try {
+    const data = await comprimirFoto(archivo);
+    estado.fotos.push({ id: "f" + Date.now().toString(36), tipo, data, descripcion: "" });
+    pintarFotos();
+    guardarBorrador();
+  } catch (err) {
+    aviso("No se pudo leer la foto. Intenta de nuevo.", "error");
+  }
+});
+
+$("#hoja").addEventListener("input", (e) => {
+  const id = e.target.dataset?.fotoDesc;
+  if (!id) return;
+  const foto = estado.fotos.find((f) => f.id === id);
+  if (foto) foto.descripcion = e.target.value;
+});
+
+$("#hoja").addEventListener("click", (e) => {
+  const id = e.target.dataset?.fotoQuitar;
+  if (!id) return;
+  estado.fotos = estado.fotos.filter((f) => f.id !== id);
+  pintarFotos();
+  guardarBorrador();
+});
+
 function leerFormulario() {
   const campos = {}, secciones = {};
   $$("[data-campo]").forEach((el) => (campos[el.dataset.campo] = el.value.trim()));
@@ -360,7 +526,8 @@ function leerFormulario() {
     secciones,
     tecnicoNombres: $("#tecnicoNombres").value.trim(),
     clienteNombre: $("#clienteNombre").value.trim(),
-    clienteDoc: $("#clienteDoc").value.trim()
+    clienteDoc: $("#clienteDoc").value.trim(),
+    fotos: estado.fotos.map((f, i) => ({ ...f, descripcion: (f.descripcion || "").trim(), orden: i }))
   };
 }
 
@@ -374,7 +541,8 @@ function guardarBorrador() {
       ...leerFormulario(),
       formatoVersion: estado.formatoFormulario.version,
       firmaTecnicoPuntos: estado.firmas.tecnico?.isEmpty() ? null : estado.firmas.tecnico.toData(),
-      firmaClientePuntos: estado.firmas.cliente?.isEmpty() ? null : estado.firmas.cliente.toData()
+      firmaClientePuntos: estado.firmas.cliente?.isEmpty() ? null : estado.firmas.cliente.toData(),
+      fotos: estado.fotos
     };
     try { localStorage.setItem(claveBorrador(), JSON.stringify(borrador)); } catch (e) { /* sin espacio */ }
   }, 600);
