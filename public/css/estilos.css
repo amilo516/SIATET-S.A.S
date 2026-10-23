@@ -114,7 +114,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--verde-linea); ou
   padding: 18px 16px 22px;
 }
 .hoja-encabezado { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
-.hoja-encabezado img { max-height: 48px; max-width: 90px; margin-left: auto; }
+.hoja-logos { display: flex; align-items: center; gap: 8px; margin-left: auto; flex: none; }
+.hoja-logos:empty { display: none; }
+.hoja-encabezado img { max-height: 48px; max-width: 90px; }
 .hoja-nombre { font-weight: 700; font-size: 24px; line-height: 1; }
 .hoja-nombre .s { color: var(--naranja); font-size: 32px; }
 .hoja-nombre .resto { color: var(--naranja); font-size: 16px; }
@@ -364,3 +366,150 @@ input[type=time] { width: 100%; min-height: 46px; padding: 10px 12px; border: 1.
   .jornada-fila.nueva .boton { grid-column: 1 / -1; }
 }
 .jornada-titulo { font-weight: 600; font-size: 15px; margin: 14px 0 0; }
+
+/* ---------- Revisión del informe antes de guardar ---------- */
+.rev-etiqueta { display: block; font-weight: 600; font-size: 14px; }
+.rev-valor { display: block; min-height: 26px; overflow-wrap: anywhere; }
+.rev-texto { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rev-firma { display: block; width: 100%; height: 150px; object-fit: contain; border: 1.5px solid #D5DAD3; border-radius: 8px; background: #FAFBF9; margin-bottom: 6px; }
+.revision .foto .nota { font-size: 13px; }
+#pantalla-revision .fila-botones .boton:not(.ancho) { flex: 1; }
+
+/* ---------- Colores de los informes ---------- */
+/* rojo: pendiente · amarillo: por enviar o esperando número · verde: enviado */
+.chip.rojo { background: #F8D3CF; color: #8C1D18; }
+.chip.amarillo { background: #FBE7A1; color: #5F4500; }
+.chip.verde { background: #D9EBD3; color: #2D4A2A; }
+.informe-item[class*="estado-"] { border-left: 6px solid transparent; padding-left: 10px; }
+.informe-item.estado-rojo { border-left-color: #C5352B; }
+.informe-item.estado-amarillo { border-left-color: #E0B400; }
+.informe-item.estado-verde { border-left-color: #4E8A45; }
+.tabla-informes .chip { display: inline-block; margin-top: 4px; }
+#form-informe .fila-botones .boton { margin: 0; }
+
+/* ---------- Permisos laborales ---------- */
+input[type=datetime-local] { width: 100%; min-height: 46px; padding: 10px 12px; border: 1.5px solid #B9BFBB; border-radius: 8px; background: var(--papel); }
+.subtitulo-hoja { font-size: 15px; margin: 6px 0 8px; padding-top: 10px; border-top: 1.5px solid var(--grafito); }
+.autorizacion { border: 1.5px solid var(--grafito); border-radius: 8px; padding: 10px 12px; margin: 0 0 12px; }
+.autorizacion.destacada { background: #DDF1FB; }
+.autorizacion legend { float: left; width: 100%; padding: 0; margin-bottom: 4px; font-weight: 600; font-size: 15px; line-height: 1.35; }
+.autorizacion .opciones { clear: both; }
+.autorizacion label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-right: 24px; font-weight: 600; }
+.autorizacion input[type=radio] { width: 22px; height: 22px; accent-color: var(--verde-linea); }
+.autorizacion .nota { margin: 6px 0 0; }
+#form-permiso .fila-botones .boton { margin: 0; }
+.datos-permiso { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 16px; margin: 8px 0 4px; }
+.datos-permiso .dato { overflow-wrap: anywhere; }
+.datos-permiso .rev-firma { height: 90px; margin: 4px 0 0; }
+#menu-permisos-cuenta { flex: none; }
+
+/* ---------- Inicio de sesión ---------- */
+body.en-login .barra, body.en-login main { display: none; }
+.login { min-height: 100vh; min-height: 100dvh; display: grid; grid-template-columns: 1.05fr 1fr; }
+.login-marca {
+  background: var(--grafito); color: #fff; position: relative; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 28px;
+  padding: calc(48px + var(--seguro-arriba)) 56px 48px;
+}
+.login-marca::before {          /* marco del formato en papel */
+  content: ""; position: absolute; inset: 28px; border: 2px solid rgba(220,233,207,.35); border-radius: 4px; pointer-events: none;
+}
+.login-marca::after {
+  content: ""; position: absolute; right: -120px; bottom: -120px; width: 420px; height: 420px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(227,163,59,.18), transparent 65%);
+}
+.login-logo { display: flex; align-items: center; gap: 14px; position: relative; z-index: 1; }
+.login-logo img { width: 58px; height: 58px; }
+.login-nombre { font-weight: 700; font-size: 34px; letter-spacing: .5px; line-height: 1; }
+.login-nombre .s { color: var(--naranja); font-size: 42px; }
+.login-nombre small { display: block; font-size: 12px; color: var(--naranja); letter-spacing: 2px; margin-top: 4px; }
+.login-mensaje { position: relative; z-index: 1; max-width: 430px; }
+.login-etiqueta { display: inline-block; font-size: 13px; font-weight: 600; letter-spacing: 1.5px; color: var(--naranja); margin-bottom: 14px; }
+.login-mensaje h1 { font-size: 46px; line-height: 1.05; margin: 0 0 16px; }
+.login-mensaje p { color: rgba(255,255,255,.78); font-size: 18px; margin: 0; }
+.login-puntos { display: flex; flex-wrap: wrap; gap: 8px 22px; position: relative; z-index: 1; font-size: 14px; color: rgba(255,255,255,.8); }
+.login-puntos span::before { content: "●"; color: var(--naranja); margin-right: 8px; font-size: 10px; vertical-align: 2px; }
+
+.login-lado { display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px 24px; }
+.login-tarjeta {
+  width: 100%; max-width: 420px; background: var(--papel); border-radius: 14px; padding: 34px 32px 28px;
+  border: 1px solid #DDE1DB; box-shadow: 0 18px 40px -22px rgba(31,35,38,.35);
+}
+.login-tarjeta h2 { margin: 0 0 4px; font-size: 28px; }
+.login-sub { margin: 0 0 24px; color: var(--suave); font-size: 15px; }
+.campo-icono { position: relative; }
+.campo-icono > svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 19px; height: 19px; fill: none; stroke: #7B8185; stroke-width: 1.8; pointer-events: none; }
+.campo-icono input { padding-left: 42px; }
+.campo-icono input[id=ing-clave] { padding-right: 48px; }
+.campo-icono input::placeholder { color: #8D9490; }
+.login-ojo {
+  position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px;
+  display: grid; place-items: center; background: none; border: 0; border-radius: 8px; cursor: pointer;
+}
+.login-ojo svg { width: 21px; height: 21px; fill: none; stroke: var(--suave); stroke-width: 1.8; stroke-linecap: round; }
+.login-ojo .tachado { display: none; }
+.login-ojo[aria-pressed=true] .tachado { display: inline; }
+.login-olvido {
+  display: block; margin: -4px 0 18px auto; padding: 8px 0; background: none; border: 0; cursor: pointer;
+  font-size: 14px; font-weight: 600; color: var(--verde-linea); text-decoration: underline;
+}
+.login-nota { display: flex; gap: 8px; align-items: flex-start; margin-top: 18px; padding: 10px 12px; border-radius: 8px; background: #F3F6EF; color: var(--suave); font-size: 13.5px; line-height: 1.35; }
+.login-nota svg { flex: none; width: 18px; height: 18px; margin-top: 1px; fill: none; stroke: var(--verde-linea); stroke-width: 2; stroke-linecap: round; }
+.login-pie { margin: 22px 0 0; font-size: 13px; color: var(--suave); text-align: center; overflow-wrap: anywhere; }
+.login-pie b { color: var(--texto); font-weight: 600; }
+
+@media (max-width: 760px) {
+  .login { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .login-marca { padding: calc(44px + var(--seguro-arriba)) 24px 44px; gap: 22px; }
+  .login-marca::before { inset: 12px; }
+  .login-mensaje h1 { font-size: 30px; margin-bottom: 8px; }
+  .login-mensaje p { font-size: 15px; }
+  .login-etiqueta { margin-bottom: 8px; }
+  .login-puntos { display: none; }
+  .login-nombre { font-size: 26px; } .login-nombre .s { font-size: 32px; } .login-logo img { width: 44px; height: 44px; }
+  .login-lado { justify-content: flex-start; padding: 0 16px 28px; margin-top: -22px; position: relative; z-index: 2; }
+  .login-tarjeta { padding: 26px 20px 22px; }
+}
+input[type=month] { width: 100%; min-height: 46px; padding: 10px 12px; border: 1.5px solid #B9BFBB; border-radius: 8px; background: var(--papel); }
+
+/* ---------- Horas para la nómina ---------- */
+.tabla-horas th.num, .tabla-horas td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tabla-horas td { vertical-align: middle; }
+.etiqueta.neutra { background: #E8EFE0; color: #2D4A2A; }
+.jornada-fila { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) auto auto; }
+.jornada-fila.nueva { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) auto; }
+.jornada-fila.nueva:has(#j-novedad) { grid-template-columns: minmax(0, 1fr) auto; }
+@media (max-width: 480px) {
+  .jornada-fila, .jornada-fila.nueva { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .jornada-fila .boton, .jornada-fila.nueva .boton { grid-column: auto; }
+  .jornada-fila.nueva .boton { grid-column: 1 / -1; }
+}
+
+/* Entrada después de las 7:00 a. m. */
+.tabla-horas td.tarde { background: #FCE4E2; color: var(--error); font-weight: 700; }
+.tarjeta.tarde { background: #FCE4E2; border-color: var(--error); }
+.tarjeta.tarde strong, .tarjeta.tarde .tarjeta-titulo { color: var(--error); }
+.informe-item.marcacion.tarde { border-left: 4px solid var(--error); background: #FDF1F0; }
+.informe-item.marcacion.tarde .num { color: var(--error); }
+
+/* Incapacidades */
+.boton-archivo { cursor: pointer; }
+.lista-archivos { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.archivo-elegido { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid #DCE9CF; border-radius: 10px; background: #fff; }
+.archivo-elegido img, .archivo-icono { width: 52px; height: 52px; object-fit: cover; border-radius: 6px; flex: none; }
+.archivo-icono { display: flex; align-items: center; justify-content: center; background: #F8D3CF; color: #8C1D18; font-weight: 700; font-size: 13px; }
+.archivo-nombre { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.docs-incapacidad { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 8px 0; }
+.doc-incapacidad { border: 1px solid #DCE9CF; border-radius: 10px; padding: 8px; background: #fff; }
+.doc-incapacidad img { width: 100%; height: 170px; object-fit: contain; background: #F3F6EF; border-radius: 6px; display: block; }
+.doc-pdf { height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: #F3F6EF; border-radius: 6px; text-align: center; font-size: 13px; overflow-wrap: anywhere; padding: 6px; }
+.doc-pdf .icono { width: 40px; height: 40px; color: #8C1D18; }
+
+/* Visor del informe (sin descargar) */
+dialog.dialogo-visor { max-width: 900px; width: calc(100% - 16px); height: calc(100% - 16px); max-height: none; padding: 0; overflow: hidden; }
+dialog.dialogo-visor[open] { display: flex; flex-direction: column; }
+.visor-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid #DCE9CF; }
+.visor-cabeza h3 { margin: 0; }
+.visor-paginas { flex: 1; overflow: auto; background: #E3E7E1; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.visor-paginas canvas { width: 100%; max-width: 860px; height: auto; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+.visor-cargando { margin: 40px auto; }

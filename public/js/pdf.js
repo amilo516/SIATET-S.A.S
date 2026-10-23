@@ -4,6 +4,7 @@
 //  usando la versión del formato con la que se hizo el informe.
 //  Funciona sin internet.
 // =====================================================================
+
 function generarPDF(informe, formato) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "mm", format: "letter" });
@@ -103,9 +104,15 @@ function generarPDF(informe, formato) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(OSCURO);
-    doc.text(doc.splitTextToSize(limpiar(linea), 135), X0, y + 6);
+    // Con segundo logo el texto se angosta para no montarse sobre los logos
+    doc.text(doc.splitTextToSize(limpiar(linea), formato.logo2 ? 92 : 135), X0, y + 6);
 
     imagenAjustada(formato.logo, X1 - 36, 15, 36, 24, "der");
+    if (formato.logo2) {
+      // Si no hay logo principal, el segundo ocupa su lugar
+      const x2 = formato.logo ? X1 - 36 - 4 - 40 : X1 - 40;
+      imagenAjustada(formato.logo2, x2, 15, 40, 24, formato.logo ? "centro" : "der");
+    }
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
@@ -246,8 +253,9 @@ function generarPDF(informe, formato) {
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    const nombresTec = doc.splitTextToSize(limpiar(informe.tecnicoNombres || ""), ANC);
-    doc.text(nombresTec, xI, yL + 4.5, { lineHeightFactor: 1.25 });
+    const prefijo = prefijoTecnico(informe);
+    const tecnico = [informe.tecnicoNombres, prefijo ? `Prefijo del técnico: ${prefijo}` : ""].filter(Boolean).map(limpiar);
+    doc.text(doc.splitTextToSize(tecnico.join("\n"), ANC), xI, yL + 4.5, { lineHeightFactor: 1.25 });
 
     const cliente = [
       informe.clienteNombre,

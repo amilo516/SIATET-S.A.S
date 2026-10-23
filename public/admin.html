@@ -23,7 +23,9 @@
     <symbol id="i-lapiz" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></symbol>
     <symbol id="i-personas" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.500 20a6.500 6.500 0 0 1 13 0M16 4.800a3.500 3.500 0 0 1 0 6.400M18 14.500a6.500 6.500 0 0 1 3.500 5.500"/></symbol>
     <symbol id="i-barras" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16M8 16v-4M12 16V8M16 16v-6"/></symbol>
+    <symbol id="i-permiso" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M9 15l2 2 4-4"/></symbol>
     <symbol id="i-salir" viewBox="0 0 24 24"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9"/></symbol>
+    <symbol id="i-incapacidad" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 8v6M9 11h6M8 17h8"/></symbol>
     <symbol id="i-mas" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   </svg>
   <header class="barra">
@@ -52,6 +54,8 @@
         <button class="menu-item" type="button" data-ir="horario"><svg class="icono" aria-hidden="true"><use href="#i-personas"/></svg><span>Marcaciones del personal</span></button>
         <button class="menu-item" type="button" data-ir="sitios"><svg class="icono" aria-hidden="true"><use href="#i-qr"/></svg><span>Códigos QR</span></button>
       </div>
+      <button class="menu-item" type="button" data-ir="permisos"><svg class="icono" aria-hidden="true"><use href="#i-permiso"/></svg><span>Permisos laborales</span><span class="etiqueta" id="menu-permisos-cuenta" hidden></span></button>
+      <button class="menu-item" type="button" data-ir="incapacidades"><svg class="icono" aria-hidden="true"><use href="#i-incapacidad"/></svg><span>Incapacidades</span><span class="etiqueta" id="menu-incapacidades-cuenta" hidden></span></button>
       <div class="menu-grupo">Configuración</div>
       <button class="menu-item" type="button" data-ir="formato"><svg class="icono" aria-hidden="true"><use href="#i-lapiz"/></svg><span>Formato del informe</span></button>
       <button class="menu-item" type="button" data-ir="tecnicos"><svg class="icono" aria-hidden="true"><use href="#i-personas"/></svg><span>Técnicos</span></button>
@@ -67,16 +71,6 @@
   </div>
 
   <main>
-    <section id="pantalla-ingreso" hidden>
-      <form id="form-ingreso" class="ingreso" novalidate>
-        <h1>Panel de administración</h1>
-        <p>Solo para usuarios con rol de administrador.</p>
-        <label class="campo"><span>Correo</span><input type="email" id="ing-correo" autocomplete="username"></label>
-        <label class="campo"><span>Contraseña</span><input type="password" id="ing-clave" autocomplete="current-password"></label>
-        <button class="boton primario ancho" type="submit">Ingresar</button>
-      </form>
-    </section>
-
     <section id="pantalla-panel" hidden>
       <!-- ===================== DASHBOARD ===================== -->
       <div data-panel="dashboard">
@@ -115,26 +109,92 @@
         </div>
       </div>
 
+      <!-- ===================== PERMISOS LABORALES ===================== -->
+      <div data-panel="permisos" hidden>
+        <div class="bloque">
+          <div class="bloque-cabeza"><h2>Solicitudes de permiso</h2><span class="nota" id="pa-resumen"></span></div>
+          <p>Las solicitudes llegan desde la app. Ábrelas para aprobarlas o negarlas con tu firma; el PDF sale con el formato de la empresa.</p>
+          <div class="fila-botones" style="margin-top:0; margin-bottom:12px">
+            <select id="pa-estado" aria-label="Filtrar por estado" style="flex:1; min-width:180px">
+              <option value="">Todas</option>
+              <option value="solicitado">Sin responder</option>
+              <option value="aprobado">Aprobadas</option>
+              <option value="negado">Negadas</option>
+            </select>
+            <button id="pa-csv" class="boton pequeno" type="button">Exportar a Excel (CSV)</button>
+          </div>
+          <div class="desplazable">
+            <table class="tabla-informes">
+              <thead><tr><th>Elaborado</th><th>Persona</th><th>Fechas</th><th>Tiempo</th><th>Estado</th><th></th></tr></thead>
+              <tbody id="pa-cuerpo"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="bloque">
+          <h2>Descargar los permisos de un mes</h2>
+          <p>Baja en un solo archivo .zip el PDF de cada solicitud del mes y un Excel con el listado. El mes se cuenta por la fecha en que se pidió el permiso.</p>
+          <div class="fila-botones" style="margin-top:0; align-items:flex-end">
+            <label class="campo" style="margin:0; flex:1; min-width:180px"><span>Mes</span><input type="month" id="dm-mes-permisos" placeholder="AAAA-MM"></label>
+            <button id="dm-permisos" class="boton primario" type="button">Descargar el mes (.zip)</button>
+          </div>
+          <p class="nota" id="dm-avance-permisos" role="status" style="margin:10px 0 0"></p>
+        </div>
+      </div>
+
+      <!-- ===================== INCAPACIDADES ===================== -->
+      <div data-panel="incapacidades" hidden>
+        <div class="bloque">
+          <div class="bloque-cabeza"><h2>Incapacidades</h2><span class="nota" id="ia-resumen"></span></div>
+          <p>Las registra el personal desde la app con el documento escaneado. Ábrelas para revisar el documento y darles el aval o rechazarlas. Al dar el aval, los días quedan como novedad “Incapacidad” en las marcaciones.</p>
+          <div class="fila-botones" style="margin-top:0; margin-bottom:12px">
+            <select id="ia-estado" aria-label="Filtrar por estado" style="flex:1; min-width:180px">
+              <option value="">Todas</option>
+              <option value="enviada">Por revisar</option>
+              <option value="avalada">Avaladas</option>
+              <option value="rechazada">Rechazadas</option>
+            </select>
+            <button id="ia-csv" class="boton pequeno" type="button">Exportar a Excel (CSV)</button>
+          </div>
+          <div class="desplazable">
+            <table class="tabla-informes">
+              <thead><tr><th>Registrada</th><th>Persona</th><th>Fechas</th><th class="num">Días</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
+              <tbody id="ia-cuerpo"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- ===================== HORARIO: MARCACIONES ===================== -->
       <div data-panel="horario" hidden>
         <div class="bloque">
           <h2>Marcaciones del personal</h2>
-          <p>Entradas y salidas marcadas desde la app. Las horas se calculan uniendo cada entrada con la salida que le sigue en el mismo día.</p>
+          <p>Horas de cada persona separadas en ordinarias, extras, extras nocturnas, extras festivas y extras festivas nocturnas, con el kilometraje y las novedades del día. Horario de lunes a viernes de 7:00 a. m. a 4:00 p. m. y 2 horas el sábado; las extras se redondean a la hora completa.</p>
           <div class="rejilla">
             <label class="campo"><span>Desde</span><input type="date" id="m-desde"></label>
             <label class="campo"><span>Hasta</span><input type="date" id="m-hasta"></label>
             <label class="campo"><span>Persona</span><select id="m-persona"><option value="">Todas</option></select></label>
           </div>
           <div class="fila-botones" style="margin-top:0">
-            <button id="m-agregar" class="boton pequeno" type="button">Agregar o corregir marcación</button>
-            <button id="m-csv" class="boton pequeno" type="button">Exportar a Excel (CSV)</button>
+            <button id="m-agregar" class="boton pequeno" type="button">Corregir un día o agregar novedad</button>
+            <button id="m-csv-resumen" class="boton pequeno" type="button">Exportar resumen para nómina</button>
+            <button id="m-csv" class="boton pequeno" type="button">Exportar detalle por día</button>
+          </div>
+        </div>
+        <div class="bloque">
+          <h2>Resumen por persona</h2>
+          <p>Totales de las fechas consultadas, en horas:minutos.</p>
+          <div class="desplazable">
+            <table class="tabla-informes tabla-horas">
+              <thead><tr id="m-encabezado-resumen"></tr></thead>
+              <tbody id="m-cuerpo-resumen"></tbody>
+            </table>
           </div>
         </div>
         <div class="bloque">
           <div class="bloque-cabeza"><h2>Horas por día</h2><span class="nota" id="m-resumen"></span></div>
           <div class="desplazable">
-            <table class="tabla-informes">
-              <thead><tr><th>Fecha</th><th>Persona</th><th>Horas</th><th>Entrada</th><th>Salida</th><th></th><th>Marcaciones</th></tr></thead>
+            <table class="tabla-informes tabla-horas">
+              <thead><tr id="m-encabezado"></tr></thead>
               <tbody id="m-cuerpo"></tbody>
             </table>
           </div>
@@ -197,6 +257,13 @@
             <label class="boton pequeno">Subir logo<input type="file" id="logo-archivo" accept="image/png,image/jpeg" hidden></label>
             <button id="logo-quitar" class="boton pequeno peligro">Quitar logo</button>
           </div>
+          <h3 class="subtitulo-hoja" style="margin-top:18px">Segundo logo (certificación)</h3>
+          <p class="nota" style="margin-top:0">Sale arriba en el PDF, al lado del logo principal. Por ejemplo, el logo del CCS / RUC. Los bordes blancos de la imagen se recortan solos.</p>
+          <img id="logo2-vista" class="logo-vista" alt="Segundo logo actual" hidden>
+          <div class="fila-botones" style="margin-top:0">
+            <label class="boton pequeno">Subir segundo logo<input type="file" id="logo2-archivo" accept="image/png,image/jpeg" hidden></label>
+            <button id="logo2-quitar" class="boton pequeno peligro">Quitar segundo logo</button>
+          </div>
           <label class="campo" style="margin-top:14px; display:flex; gap:8px; align-items:center">
             <input type="checkbox" data-ruta="marcaDeAgua" style="width:20px;height:20px"> <span style="margin:0">Usar el logo como marca de agua en el PDF</span>
           </label>
@@ -247,10 +314,30 @@
       <!-- ===================== INFORMES ===================== -->
       <div data-panel="informes" hidden>
         <div class="bloque">
+          <h2>Consecutivo de informes</h2>
+          <p>Todos los informes se numeran con IST y una sola numeración (IST-0001, IST-0002…). El prefijo de cada técnico sale en el PDF, debajo de su nombre, como “Prefijo del técnico”. Último número entregado: <strong id="c-ultimo">—</strong>. El próximo informe será el <strong id="c-siguiente">—</strong>.</p>
+          <details>
+            <summary class="nota" style="cursor:pointer">Cambiar el número con el que sigue</summary>
+            <form id="form-consecutivo" class="rejilla" novalidate style="margin-top:10px">
+              <label class="campo"><span>Número del próximo informe</span><input type="number" id="c-nuevo" min="1" step="1"></label>
+              <div class="campo" style="align-self:end"><button class="boton" type="submit">Guardar</button></div>
+            </form>
+          </details>
+        </div>
+        <div class="bloque">
+          <h2>Descargar los informes de un mes</h2>
+          <p>Baja en un solo archivo .zip el PDF de cada informe del mes (con sus fotos) y un Excel con el listado. Los pendientes salen marcados. El mes se cuenta por la fecha en que se guardó el informe.</p>
+          <div class="fila-botones" style="margin-top:0; align-items:flex-end">
+            <label class="campo" style="margin:0; flex:1; min-width:180px"><span>Mes</span><input type="month" id="dm-mes-informes" placeholder="AAAA-MM"></label>
+            <button id="dm-informes" class="boton primario" type="button">Descargar el mes (.zip)</button>
+          </div>
+          <p class="nota" id="dm-avance-informes" role="status" style="margin:10px 0 0"></p>
+        </div>
+        <div class="bloque">
           <h2>Informes recibidos</h2>
           <p>Los últimos 300 informes sincronizados por los técnicos.</p>
           <div class="fila-botones" style="margin-top:0; margin-bottom:12px">
-            <input type="text" id="buscar" placeholder="Buscar por número, entidad, equipo o técnico" style="flex:1; min-width:220px">
+            <input type="text" id="buscar" placeholder="Buscar por número, entidad, equipo, técnico o estado" style="flex:1; min-width:220px">
             <button id="btn-csv" class="boton pequeno">Exportar a Excel (CSV)</button>
           </div>
           <div class="desplazable">
@@ -299,21 +386,85 @@
     </section>
   </main>
 
+  <dialog id="dialogo-visor" class="dialogo-visor" aria-labelledby="visor-titulo">
+    <div class="visor-cabeza">
+      <h3 id="visor-titulo">Informe</h3>
+      <div class="fila-botones" style="margin:0">
+        <button id="visor-descargar" class="boton primario pequeno" type="button">Descargar PDF</button>
+        <button id="visor-cerrar" class="boton pequeno" type="button">Cerrar</button>
+      </div>
+    </div>
+    <div id="visor-paginas" class="visor-paginas"></div>
+  </dialog>
+
+  <dialog id="dialogo-respuesta" class="dialogo-ancho">
+    <h3 id="pr-titulo"></h3>
+    <div id="pr-datos" class="datos-permiso"></div>
+    <p class="jornada-titulo">Respuesta de la empresa</p>
+    <p class="nota" id="pr-estado"></p>
+    <div class="rejilla">
+      <label class="campo"><span>Días concedidos</span><input type="number" id="pr-dias" min="0" step="1"></label>
+      <label class="campo"><span>Horas concedidas</span><input type="number" id="pr-horas" min="0" step="0.5"></label>
+    </div>
+    <label class="campo"><span>Nombre de quien responde</span><input type="text" id="pr-nombre"></label>
+    <label class="campo"><span>Nota (obligatoria si se niega)</span><input type="text" id="pr-nota" maxlength="160"></label>
+    <div class="firma">
+      <h3>FIRMA DEL EMPLEADOR</h3>
+      <div class="lienzo-firma" id="pr-lienzo" style="height:130px"><canvas></canvas><div class="guia"></div><div class="pista">Firma aquí</div></div>
+      <button type="button" class="boton pequeno" id="pr-borrar-firma">Borrar firma</button>
+    </div>
+    <div class="fila-botones">
+      <button id="pr-aprobar" class="boton primario pequeno" type="button">Aprobar</button>
+      <button id="pr-negar" class="boton pequeno peligro" type="button">Negar</button>
+      <button id="pr-pdf" class="boton pequeno" type="button">Descargar PDF</button>
+      <button id="pr-cerrar" class="boton pequeno" type="button">Cerrar</button>
+    </div>
+  </dialog>
+
+  <dialog id="dialogo-incapacidad-admin" class="dialogo-ancho">
+    <h3 id="ir-titulo"></h3>
+    <div id="ir-datos" class="datos-permiso"></div>
+    <p class="jornada-titulo">Documento</p>
+    <div id="ir-documentos" class="docs-incapacidad"></div>
+    <p class="jornada-titulo">Decisión de la empresa</p>
+    <p class="nota" id="ir-estado"></p>
+    <label class="campo"><span>Nota (obligatoria si se rechaza)</span><input type="text" id="ir-nota" maxlength="160"></label>
+    <div class="fila-botones">
+      <button id="ir-avalar" class="boton primario pequeno" type="button">Dar aval</button>
+      <button id="ir-rechazar" class="boton pequeno peligro" type="button">Rechazar</button>
+      <button id="ir-borrar" class="boton pequeno" type="button">Borrar</button>
+      <button id="ir-cerrar" class="boton pequeno" type="button">Cerrar</button>
+    </div>
+  </dialog>
+
   <dialog id="dialogo-jornada" class="dialogo-ancho">
-    <h3>Corregir marcaciones</h3>
+    <h3>Corregir un día</h3>
     <div class="rejilla">
       <label class="campo"><span>Persona</span><select id="j-persona"></select></label>
       <label class="campo"><span>Fecha</span><input type="date" id="j-dia"></label>
     </div>
     <p class="nota" id="j-resumen"></p>
     <div id="j-lista"></div>
+    <div id="j-almuerzo" hidden>
+      <label class="campo" style="display:flex; gap:8px; align-items:center; margin:12px 0 0">
+        <input type="checkbox" id="j-continua" style="width:20px;height:20px"> <span style="margin:0">Jornada continua: no descontar almuerzo este día</span>
+      </label>
+      <p class="nota" id="j-almuerzo-nota" style="margin:4px 0 0"></p>
+    </div>
     <p class="jornada-titulo">Agregar una marcación que falta</p>
     <form id="j-nueva" class="jornada-fila nueva" novalidate>
       <select id="j-tipo" aria-label="Tipo de marcación"><option value="entrada">Entrada</option><option value="salida">Salida</option></select>
       <input type="time" id="j-hora" aria-label="Hora">
+      <input type="number" id="j-km" min="0" step="1" placeholder="Km (opcional)" aria-label="Kilometraje">
       <button class="boton primario pequeno" type="submit">Agregar</button>
     </form>
-    <p class="nota">Los cambios se guardan al tocar “Guardar”, “Agregar” o “Borrar”, y quedan marcados como corregidos por el administrador.</p>
+    <p class="jornada-titulo">Novedad del día</p>
+    <div class="jornada-fila nueva">
+      <input type="text" id="j-novedad" list="j-sugerencias" maxlength="80" placeholder="Ej.: Incapacidad, permiso, vacaciones" aria-label="Novedad">
+      <datalist id="j-sugerencias"></datalist>
+      <button id="j-guardar-novedad" class="boton pequeno" type="button">Guardar novedad</button>
+    </div>
+    <p class="nota">Los cambios se guardan al tocar cada botón y quedan marcados como hechos por el administrador. Para quitar una novedad, borra el texto y guarda.</p>
     <div class="fila-botones"><button id="j-cerrar" class="boton pequeno" type="button">Cerrar</button></div>
   </dialog>
 
@@ -330,13 +481,21 @@
   <script src="js/libs/firebase-auth-compat.js"></script>
   <script src="js/libs/firebase-firestore-compat.js"></script>
   <script src="js/libs/jspdf.umd.min.js"></script>
+  <script src="js/libs/signature_pad.umd.min.js"></script>
   <script src="js/libs/qrcode.min.js"></script>
+  <script src="js/libs/jszip.min.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/formato-base.js"></script>
   <script src="js/comun.js"></script>
   <script src="js/menu.js"></script>
   <script src="js/pdf.js"></script>
   <script src="js/admin.js"></script>
+  <script src="js/horas.js"></script>
   <script src="js/horario-admin.js"></script>
+  <script src="js/permiso-base.js"></script>
+  <script src="js/permisos-admin.js"></script>
+  <script src="js/incapacidad-base.js"></script>
+  <script src="js/incapacidades-admin.js"></script>
+  <script src="js/descargas-mes.js"></script>
 </body>
 </html>

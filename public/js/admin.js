@@ -1,8 +1,13 @@
+// =====================================================================
+//  PANEL DE ADMINISTRACIÓN
+// =====================================================================
+
 const admin = {
   vigente: FORMATO_BASE,   // versión publicada
   edicion: null,           // copia que se está editando
   editado: false,          // hay cambios sin publicar
   informes: [],
+  consecutivo: null,       // último número entregado (null = aún no se ha iniciado)
   usuarios: [],
   desuscribir: []
 };
@@ -11,14 +16,6 @@ vigilarConexion($("#estado-red"));
 registrarServiceWorker();
 
 // ---------- Sesión ----------
-$("#form-ingreso").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  try {
-    await auth.signInWithEmailAndPassword($("#ing-correo").value.trim(), $("#ing-clave").value);
-  } catch (err) {
-    aviso("No se pudo ingresar. Revisa el correo y la contraseña.", "error");
-  }
-});
 $("#btn-salir").addEventListener("click", async () => {
   await auth.signOut();
   location.replace("index.html");
@@ -29,8 +26,8 @@ auth.onAuthStateChanged(async (usuario) => {
   admin.desuscribir = [];
   $("#btn-menu").hidden = true;
   if (!usuario) {
-    $("#pantalla-ingreso").hidden = false;
-    $("#pantalla-panel").hidden = true;
+    // Hay un solo inicio de sesión, el de la app; desde ahí el administrador llega al panel
+    location.replace("index.html");
     return;
   }
 
@@ -46,7 +43,6 @@ auth.onAuthStateChanged(async (usuario) => {
     return;
   }
 
-  $("#pantalla-ingreso").hidden = true;
   $("#pantalla-panel").hidden = false;
   $("#btn-menu").hidden = false;
   menu.usuario(perfil.nombre || usuario.email, "admin");
@@ -58,8 +54,11 @@ auth.onAuthStateChanged(async (usuario) => {
     if (!admin.editado) cargarEdicion(f);
   }));
   admin.desuscribir.push(escucharInformesAdmin());
+  admin.desuscribir.push(escucharConsecutivo());
   admin.desuscribir.push(escucharUsuarios());
   admin.desuscribir.push(iniciarHorarioAdmin());
+  admin.desuscribir.push(escucharPermisosAdmin());
+  admin.desuscribir.push(escucharIncapacidadesAdmin());
 });
 
 // ---------- Menú y secciones ----------
@@ -148,8 +147,8 @@ function pintarTablero() {
   const ultimos = admin.informes.slice(0, 5);
   $("#d-ultimos").innerHTML = ultimos.length ? ultimos.map((i) => `
     <li><button class="informe-item" data-pdf="${escaparHtml(i.id)}">
-      <span class="num">${escaparHtml(i.numero)} · ${escaparHtml(i.campos?.entidad || "Sin entidad")}</span>
-      <span class="chip sincronizado">Descargar PDF</span>
+      <span class="num">${escaparHtml(i.numero || "Sin número")} · ${escaparHtml(i.campos?.entidad || "Sin entidad")}</span>
+      <span class="chip ${estadoDeInforme(i).clase}">${i.estado === "pendiente" ? "Pendiente" : "Ver informe"}</span>
       <span class="det">${escaparHtml([fechaLegible(i.campos?.fecha), i.campos?.equipo, i.tecnicoNombres].filter(Boolean).join(" · "))}</span>
     </button></li>`).join("") : `<li class="vacio">Aún no se ha recibido ningún informe.</li>`;
 }
@@ -158,7 +157,7 @@ $("#d-ultimos").addEventListener("click", (e) => {
   const boton = e.target.closest("[data-pdf]");
   if (!boton) return;
   const informe = admin.informes.find((i) => i.id === boton.dataset.pdf);
-  if (informe) descargarPdf(informe).catch((err) => aviso(err.message, "error"));
+  if (informe) verPdf(informe);
 });
 
 // =====================================================================
@@ -193,6 +192,8 @@ function pintarEditor() {
   });
   $("#logo-vista").hidden = !f.logo;
   if (f.logo) $("#logo-vista").src = f.logo;
+  $("#logo2-vista").hidden = !f.logo2;
+  if (f.logo2) $("#logo2-vista").src = f.logo2;
   pintarCampos();
   pintarSecciones();
 }
@@ -310,16 +311,75 @@ $("#logo-quitar").addEventListener("click", () => {
   pintarEditor();
 });
 
+// Segundo logo: se recortan los bordes blancos para que no quede pequeño en el PDF
+$("#logo2-archivo").addEventListener("change", async (e) => {
+  const archivo = e.target.files[0];
+  e.target.value = "";
+  if (!archivo) return;
+  try {
+    admin.edicion.logo2 = await reducirImagen(archivo, 500, true);
+    admin.editado = true;
+    pintarEditor();
+    aviso("Segundo logo cargado. Publica una nueva versión para aplicarlo.", "ok");
+  } catch (err) {
+    aviso("No se pudo leer la imagen.", "error");
+  }
+});
+$("#logo2-quitar").addEventListener("click", () => {
+  admin.edicion.logo2 = "";
+  admin.editado = true;
+  pintarEditor();
+});
+
 // Reduce la imagen para que quepa en la base de datos (máx. ~400 KB)
-function reducirImagen(archivo, maximo) {
+// Con recortar = true quita los bordes blancos o transparentes alrededor del dibujo
+function areaConDibujo(img) {
+  const c = document.createElement("canvas");
+  c.width = img.width; c.height = img.height;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+  const { data } = ctx.getImageData(0, 0, c.width, c.height);
+  let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < c.height; y++) {
+    for (let x = 0; x < c.width; x++) {
+      const i = (y * c.width + x) * 4;
+      const fondo = data[i + 3] < 20 || (data[i] > 235 && data[i + 1] > 235 && data[i + 2] > 235);
+      if (fondo) continue;
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < 0) return { x: 0, y: 0, w: img.width, h: img.height };
+  const m = 4;   // pequeño margen
+  x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m);
+  x1 = Math.min(img.width - 1, x1 + m); y1 = Math.min(img.height - 1, y1 + m);
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+// Vuelve transparente el fondo blanco o gris muy claro (muchos logos vienen en JPG con fondo)
+function quitarFondoClaro(canvas) {
+  const ctx = canvas.getContext("2d");
+  const imagen = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imagen.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const max = Math.max(d[i], d[i + 1], d[i + 2]), min = Math.min(d[i], d[i + 1], d[i + 2]);
+    if (min > 232 && max - min < 14) d[i + 3] = 0;
+    else if (min > 215 && max - min < 14) d[i + 3] = Math.round(255 * (232 - min) / 17);   // borde suave
+  }
+  ctx.putImageData(imagen, 0, 0);
+}
+
+function reducirImagen(archivo, maximo, recortar = false) {
   return new Promise((resolver, rechazar) => {
     const img = new Image();
     img.onload = () => {
-      const esc = Math.min(1, maximo / Math.max(img.width, img.height));
+      const area = recortar ? areaConDibujo(img) : { x: 0, y: 0, w: img.width, h: img.height };
+      const esc = Math.min(1, maximo / Math.max(area.w, area.h));
       const canvas = document.createElement("canvas");
-      canvas.width = Math.round(img.width * esc);
-      canvas.height = Math.round(img.height * esc);
-      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.width = Math.round(area.w * esc);
+      canvas.height = Math.round(area.h * esc);
+      canvas.getContext("2d").drawImage(img, area.x, area.y, area.w, area.h, 0, 0, canvas.width, canvas.height);
+      if (recortar) quitarFondoClaro(canvas);
       let url = canvas.toDataURL("image/png");
       if (url.length > 400000) {
         const ctx = canvas.getContext("2d");
@@ -360,8 +420,8 @@ function informeDeEjemplo(formato) {
     for (let i = 0; i < (formato.fotos.maxDespues || 0); i++) fotos.push({ tipo: "despues", data: ejemplo("Foto después " + (i + 1)), descripcion: "Descripción de ejemplo" });
   }
   return {
-    numero: "EJ-0001", campos, secciones, fotos,
-    tecnicoNombres: "Nombre del técnico", clienteNombre: "Nombre del cliente", clienteDoc: "1.234.567",
+    numero: "IST-0001", campos, secciones, fotos,
+    tecnicoNombres: "Nombre del técnico", tecnicoPrefijo: "EJ", clienteNombre: "Nombre del cliente", clienteDoc: "1.234.567",
     formatoVersion: formato.version
   };
 }
@@ -422,7 +482,7 @@ $("#btn-deshacer").addEventListener("click", () => {
 });
 $("#btn-base").addEventListener("click", () => {
   if (confirm("¿Cargar el formato original en el editor? No se publica hasta que toques Publicar.")) {
-    cargarEdicion({ ...FORMATO_BASE, logo: admin.edicion.logo });
+    cargarEdicion({ ...FORMATO_BASE, logo: admin.edicion.logo, logo2: admin.edicion.logo2 || "" });
     admin.editado = true;
   }
 });
@@ -436,14 +496,67 @@ function escucharInformesAdmin() {
       admin.informes = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
       pintarInformes();
       pintarTablero();
+      admin.informesCargados = true;
+      iniciarConsecutivoSiFalta();
     }, (err) => aviso("No se pudieron cargar los informes: " + err.code, "error"));
 }
+
+// ---------- Consecutivo único de informes ----------
+// contadores/informes guarda el último número entregado. Cada informe nuevo
+// recibe el siguiente, sin importar qué técnico lo hizo.
+function escucharConsecutivo() {
+  return db.collection("contadores").doc("informes").onSnapshot((snap) => {
+    admin.consecutivo = snap.exists ? Number(snap.data().ultimo || 0) : null;
+    admin.consecutivoLeido = !snap.metadata.fromCache;
+    $("#c-ultimo").textContent = admin.consecutivo === null ? "sin iniciar" : String(admin.consecutivo).padStart(4, "0");
+    $("#c-siguiente").textContent = admin.consecutivo === null ? "—" : String(admin.consecutivo + 1).padStart(4, "0");
+    iniciarConsecutivoSiFalta();
+  }, (err) => console.warn("Sin acceso al consecutivo:", err.code));
+}
+
+// Número más alto que ya se usó en los informes cargados
+function mayorNumeroUsado() {
+  return admin.informes.reduce((mayor, i) => {
+    const m = /-(\d+)$/.exec(i.numero || "");
+    return m ? Math.max(mayor, Number(m[1])) : mayor;
+  }, 0);
+}
+
+// La primera vez arranca desde el número más alto que ya existe, para no repetir ninguno
+async function iniciarConsecutivoSiFalta() {
+  if (admin.consecutivo !== null || !admin.consecutivoLeido || !admin.informesCargados || admin.iniciandoConsecutivo) return;
+  admin.iniciandoConsecutivo = true;
+  try {
+    const ultimo = mayorNumeroUsado();
+    await db.collection("contadores").doc("informes").set({ ultimo });
+    admin.consecutivo = ultimo;
+    aviso(`Consecutivo único iniciado. El próximo informe será el ${String(ultimo + 1).padStart(4, "0")}.`, "ok");
+  } catch (err) {
+    console.warn("No se pudo iniciar el consecutivo:", err.code);
+  }
+  admin.iniciandoConsecutivo = false;
+}
+
+$("#form-consecutivo").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const siguiente = Math.floor(Number($("#c-nuevo").value));
+  if (!(siguiente >= 1)) return aviso("Escribe el número que debe llevar el próximo informe.", "error");
+  const usado = mayorNumeroUsado();
+  if (siguiente <= usado && !confirm(`Ya existen informes hasta el ${String(usado).padStart(4, "0")}. Si sigues desde ${String(siguiente).padStart(4, "0")} se van a repetir números. ¿Continuar?`)) return;
+  try {
+    await db.collection("contadores").doc("informes").set({ ultimo: siguiente - 1 });
+    $("#c-nuevo").value = "";
+    aviso(`Listo. El próximo informe será el ${String(siguiente).padStart(4, "0")}.`, "ok");
+  } catch (err) {
+    aviso("No se pudo cambiar el consecutivo: " + err.message, "error");
+  }
+});
 
 function informesFiltrados() {
   const q = $("#buscar").value.trim().toLowerCase();
   if (!q) return admin.informes;
   return admin.informes.filter((i) =>
-    [i.numero, i.campos?.entidad, i.campos?.equipo, i.campos?.sede, i.tecnicoNombres, i.clienteNombre]
+    [i.numero, i.campos?.entidad, i.campos?.equipo, i.campos?.sede, i.tecnicoNombres, i.clienteNombre, estadoDeInforme(i).texto]
       .join(" ").toLowerCase().includes(q));
 }
 
@@ -451,12 +564,13 @@ function pintarInformes() {
   const lista = informesFiltrados();
   $("#cuerpo-informes").innerHTML = lista.length ? lista.map((i) => `
     <tr>
-      <td><strong>${escaparHtml(i.numero)}</strong></td>
+      <td><strong>${escaparHtml(i.numero || "Sin número")}</strong><br><span class="chip ${estadoDeInforme(i).clase}" title="${escaparHtml(i.motivoPendiente || "")}">${estadoDeInforme(i).texto}</span></td>
       <td>${escaparHtml(fechaLegible(i.campos?.fecha))}</td>
       <td>${escaparHtml(i.campos?.entidad)}${i.campos?.sede ? `<br><span class="nota">${escaparHtml(i.campos.sede)}</span>` : ""}</td>
       <td>${escaparHtml(i.campos?.equipo)}</td>
       <td>${escaparHtml(i.tecnicoNombres)}</td>
       <td style="white-space:nowrap">
+        <button class="boton pequeno primario" data-ver="${escaparHtml(i.id)}">Ver</button>
         <button class="boton pequeno" data-pdf="${escaparHtml(i.id)}">PDF</button>
         <button class="boton pequeno peligro" data-borrar="${escaparHtml(i.id)}" aria-label="Borrar">✕</button>
       </td>
@@ -465,6 +579,8 @@ function pintarInformes() {
 $("#buscar").addEventListener("input", pintarInformes);
 
 $("#cuerpo-informes").addEventListener("click", async (e) => {
+  const idVer = e.target.dataset?.ver;
+  if (idVer) verPdf(admin.informes.find((i) => i.id === idVer));
   const idPdf = e.target.dataset?.pdf;
   const idBorrar = e.target.dataset?.borrar;
   if (idPdf) {
@@ -473,7 +589,7 @@ $("#cuerpo-informes").addEventListener("click", async (e) => {
   }
   if (idBorrar) {
     const informe = admin.informes.find((i) => i.id === idBorrar);
-    if (!confirm(`¿Borrar definitivamente el informe ${informe.numero}? Esta acción no se puede deshacer.`)) return;
+    if (!confirm(`¿Borrar definitivamente el informe ${informe.numero || "sin número"}? Esta acción no se puede deshacer.`)) return;
     try {
       // Primero se borran sus fotos y luego el informe
       const ref = db.collection("informes").doc(idBorrar);
@@ -489,30 +605,37 @@ $("#cuerpo-informes").addEventListener("click", async (e) => {
   }
 });
 
-$("#btn-csv").addEventListener("click", () => {
-  const lista = informesFiltrados();
-  if (!lista.length) return aviso("No hay informes para exportar.");
+// Texto del archivo de Excel (CSV) con los informes de la lista
+function csvInformes(lista) {
   const idsCampos = [...new Set(lista.flatMap((i) => Object.keys(i.campos || {})))];
   const idsSecciones = [...new Set(lista.flatMap((i) => Object.keys(i.secciones || {})))];
   const nombre = (id, arr, prop) => arr.find((x) => x.id === id)?.[prop] || id;
 
-  const encabezado = ["Número",
+  const encabezado = ["Número", "Estado",
     ...idsCampos.map((id) => nombre(id, admin.vigente.campos, "etiqueta")),
     ...idsSecciones.map((id) => nombre(id, admin.vigente.secciones, "titulo")),
     "Técnico(s)", "Recibe", "Documento", "Correo técnico", "Versión formato", "Creado"];
   const celda = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const filas = lista.map((i) => [
-    i.numero,
+    i.numero, i.estado === "pendiente" ? `Pendiente: ${i.motivoPendiente || ""}` : "Finalizado",
     ...idsCampos.map((id) => i.campos?.[id]),
     ...idsSecciones.map((id) => i.secciones?.[id]),
     i.tecnicoNombres, i.clienteNombre, i.clienteDoc, i.tecnicoCorreo, i.formatoVersion, i.creadoLocal
   ].map(celda).join(";"));
+  return "﻿" + [encabezado.map(celda).join(";"), ...filas].join("\r\n");
+}
 
-  const csv = "\uFEFF" + [encabezado.map(celda).join(";"), ...filas].join("\r\n");
+function descargarTexto(texto, nombreArchivo) {
   const enlace = document.createElement("a");
-  enlace.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  enlace.download = `informes_siatet_${hoyISO()}.csv`;
+  enlace.href = URL.createObjectURL(new Blob([texto], { type: "text/csv;charset=utf-8" }));
+  enlace.download = nombreArchivo;
   enlace.click();
+}
+
+$("#btn-csv").addEventListener("click", () => {
+  const lista = informesFiltrados();
+  if (!lista.length) return aviso("No hay informes para exportar.");
+  descargarTexto(csvInformes(lista), `informes_siatet_${hoyISO()}.csv`);
 });
 
 // =====================================================================

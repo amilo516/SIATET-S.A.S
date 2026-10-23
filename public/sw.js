@@ -4,7 +4,7 @@
 //  CADA VEZ QUE CAMBIES EL CÓDIGO DE LA APP, sube el número de VERSION
 //  (por ejemplo 1.0.1). Así los celulares detectan la actualización.
 // =====================================================================
-const VERSION = "1.3.2";
+const VERSION = "1.13.3";
 const CACHE = `siatet-app-${VERSION}`;
 
 const ARCHIVOS = [
@@ -18,6 +18,7 @@ const ARCHIVOS = [
   "./fonts/barlow-latin-600-normal.woff2",
   "./fonts/barlow-latin-700-normal.woff2",
   "./icons/icon-192.png",
+  "./icons/logo-siatet.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
   "./icons/apple-touch-icon.png",
@@ -27,23 +28,37 @@ const ARCHIVOS = [
   "./js/libs/jspdf.umd.min.js",
   "./js/libs/signature_pad.umd.min.js",
   "./js/libs/jsqr.min.js",
+  "./js/libs/pdfjs.min.js",
+  "./js/libs/pdfjs.worker.min.js",
   "./js/libs/qrcode.min.js",
+  "./js/libs/jszip.min.js",
   "./js/firebase-config.js",
   "./js/formato-base.js",
   "./js/comun.js",
   "./js/menu.js",
   "./js/pdf.js",
+  "./js/horas.js",
   "./js/horario.js",
+  "./js/permiso-base.js",
+  "./js/permisos.js",
+  "./js/permisos-admin.js",
+  "./js/incapacidad-base.js",
+  "./js/incapacidades.js",
+  "./js/incapacidades-admin.js",
+  "./js/descargas-mes.js",
   "./js/horario-admin.js",
   "./js/app.js",
   "./js/admin.js"
 ];
 
+// Se guarda archivo por archivo: si alguno falla (por ejemplo, porque no se
+// subió), la actualización se instala igual y ese archivo se pide a internet.
 self.addEventListener("install", (evento) => {
   evento.waitUntil(
-    caches.open(CACHE).then((cache) =>
-      cache.addAll(ARCHIVOS.map((url) => new Request(url, { cache: "reload" })))
-    )
+    caches.open(CACHE).then((cache) => Promise.all(ARCHIVOS.map((url) =>
+      cache.add(new Request(url, { cache: "reload" }))
+        .catch((err) => console.warn("No se pudo guardar", url, err))
+    )))
   );
 });
 

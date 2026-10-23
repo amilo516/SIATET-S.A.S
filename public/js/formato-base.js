@@ -15,6 +15,7 @@ const FORMATO_BASE = {
     telefono: ""
   },
   logo: "",              // imagen en base64; se carga desde el panel
+  logo2: "",             // segundo logo (certificación), al lado del principal
   marcaDeAgua: true,     // usa el logo como marca de agua en el PDF
   colores: {
     marco: "#DCE9CF",    // verde claro del borde

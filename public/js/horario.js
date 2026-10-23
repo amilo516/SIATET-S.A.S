@@ -47,7 +47,13 @@ function marcacionesDeHoy() {
 function siguienteTipo() {
   const hoy = marcacionesDeHoy();
   const ultima = hoy[hoy.length - 1];
-  return ultima && ultima.tipo === "entrada" ? "salida" : "entrada";
+  if (ultima) return ultima.tipo === "entrada" ? "salida" : "entrada";
+  // Turno que pasó de medianoche: si la última marcación fue una entrada de ayer
+  // y todavía es de madrugada, lo que sigue es la salida de ese turno.
+  const anterior = horario.marcaciones[0];
+  const horasDesde = anterior ? (Date.now() - new Date(anterior.fechaLocal)) / 3600000 : 99;
+  const turnoAbierto = anterior && anterior.tipo === "entrada" && horasDesde < 18 && new Date().getHours() < 6;
+  return turnoAbierto ? "salida" : "entrada";
 }
 
 function horaLegible(iso) {
@@ -81,7 +87,10 @@ function registrarMarcacion({ metodo, sitio = null, nota = "" }) {
 
   const tipo = siguienteTipo();
   const ahora = new Date();
+  const km = $("#h-km").value.trim() === "" ? null : Math.max(0, Math.round(Number($("#h-km").value)));
+  $("#h-km").value = "";
   db.collection("marcaciones").doc().set({
+    km,
     tecnicoUid: estado.usuario.uid,
     tecnicoNombre: estado.perfil.nombre,
     tipo,
@@ -124,6 +133,7 @@ function pintarHorario() {
   $("#h-titulo").textContent = esQr ? "Marcar con código QR" : "Marcar sin QR";
   $("#h-fecha").textContent = new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" });
   $("#h-entrada").textContent = entrada ? horaLegible(entrada.fechaLocal) : "Sin marcar";
+  $("#h-entrada").closest(".tarjeta").classList.toggle("tarde", !!entrada && esEntradaTarde(entrada.fechaLocal));
   $("#h-salida").textContent = salida ? horaLegible(salida.fechaLocal) : "Sin marcar";
 
   const minutos = minutosTrabajados(hoy);
@@ -137,11 +147,16 @@ function pintarHorario() {
   $("#h-marcar").textContent = `Marcar ${tipo}`;
 
   const lista = horario.marcaciones.slice(0, 12);
+  // Primera entrada de cada día (la lista viene de la más reciente a la más antigua)
+  const primeraEntrada = {};
+  horario.marcaciones.forEach((m) => { if (m.tipo === "entrada") primeraEntrada[m.dia] = m; });
+  const tarde = (m) => primeraEntrada[m.dia] === m && esEntradaTarde(m.fechaLocal);
   $("#h-lista").innerHTML = lista.length ? lista.map((m) => `
-    <li class="informe-item marcacion">
-      <span class="num">${m.tipo === "entrada" ? "Entrada" : "Salida"} · ${escaparHtml(horaLegible(m.fechaLocal))}</span>
+    <li class="informe-item marcacion${tarde(m) ? " tarde" : ""}">
+      <span class="num">${m.tipo === "entrada" ? "Entrada" : "Salida"} · ${escaparHtml(horaLegible(m.fechaLocal))}${tarde(m) ? " · Tarde" : ""}</span>
       <span class="chip ${m._pendiente ? "pendiente" : "sincronizado"}">${m._pendiente ? "Por enviar" : "Enviada"}</span>
-      <span class="det">${escaparHtml([fechaLegible(m.dia), m.metodo === "qr" ? "Con QR" : m.metodo === "admin" ? "Agregada por el administrador" : "Sin QR", m.sitioNombre || m.nota, m.corregido && m.metodo !== "admin" ? "Corregida por el administrador" : ""].filter(Boolean).join(" · "))}</span>
+      <span class="det">${escaparHtml([fechaLegible(m.dia), m.metodo === "qr" ? "Con QR" : m.metodo === "admin" ? "Agregada por el administrador" : "Sin QR", m.sitioNombre || m.nota,
+        m.km !== undefined && m.km !== null && m.km !== "" ? `${Number(m.km).toLocaleString("es-CO")} km` : "", m.corregido && m.metodo !== "admin" ? "Corregida por el administrador" : ""].filter(Boolean).join(" · "))}</span>
     </li>`).join("") : `<li class="vacio">Aún no tienes marcaciones.</li>`;
 }
 

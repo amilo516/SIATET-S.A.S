@@ -36,15 +36,86 @@ service cloud.firestore {
     match /informes/{id} {
       allow create: if registrado() && request.resource.data.tecnicoUid == request.auth.uid;
       allow read: if esAdmin() || (registrado() && resource.data.tecnicoUid == request.auth.uid);
-      // Un informe firmado no se modifica. Solo el administrador puede anularlo o borrarlo.
-      allow update, delete: if esAdmin();
+      // Un informe finalizado no se modifica. El técnico solo puede:
+      //  - seguir editando un informe que dejó PENDIENTE, sin cambiarle número ni dueño;
+      //  - ponerle el número consecutivo cuando todavía no lo tiene.
+      allow update: if esAdmin()
+        || (registrado()
+          && resource.data.tecnicoUid == request.auth.uid
+          && resource.data.get("estado", "") == "pendiente"
+          && request.resource.data.tecnicoUid == resource.data.tecnicoUid
+          && request.resource.data.numero == resource.data.numero)
+        || (registrado()
+          && resource.data.tecnicoUid == request.auth.uid
+          && resource.data.numero == ""
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["numero"]));
+      allow delete: if esAdmin();
 
       // Fotos del informe (antes y después)
       match /fotos/{fotoId} {
         allow create: if registrado() && request.resource.data.tecnicoUid == request.auth.uid;
         allow read: if esAdmin() || (registrado() && resource.data.tecnicoUid == request.auth.uid);
-        allow delete: if esAdmin();
+        // Mientras el informe está pendiente, el técnico puede cambiar o quitar sus fotos
+        allow update, delete: if esAdmin() || (registrado()
+          && resource.data.tecnicoUid == request.auth.uid
+          && get(/databases/$(database)/documents/informes/$(id)).data.get("estado", "") == "pendiente");
       }
+    }
+
+    // Consecutivo único de informes y total de informes de cada técnico
+    //   contadores/informes       { ultimo }          -> solo puede subir de uno en uno
+    //   contadores/tecnico_{uid}  { total, meses }    -> lo lleva cada técnico
+    match /contadores/{id} {
+      allow read: if registrado();
+      allow create: if esAdmin() || (registrado() && id == "tecnico_" + request.auth.uid);
+      allow update: if esAdmin()
+        || (registrado() && id == "tecnico_" + request.auth.uid)
+        || (registrado() && id == "informes" && request.resource.data.ultimo == resource.data.ultimo + 1);
+      allow delete: if esAdmin();
+    }
+
+    // Solicitudes de permiso laboral
+    match /permisos/{id} {
+      allow create: if registrado()
+        && request.resource.data.tecnicoUid == request.auth.uid
+        && request.resource.data.estado == "solicitado";
+      allow read: if esAdmin() || (registrado() && resource.data.tecnicoUid == request.auth.uid);
+      // Solo el administrador responde. El trabajador puede retirar la suya mientras no se haya respondido.
+      allow update: if esAdmin();
+      allow delete: if esAdmin() || (registrado()
+        && resource.data.tecnicoUid == request.auth.uid
+        && resource.data.estado == "solicitado");
+    }
+
+    // Incapacidades con su documento escaneado
+    match /incapacidades/{id} {
+      allow create: if registrado()
+        && request.resource.data.tecnicoUid == request.auth.uid
+        && request.resource.data.estado == "enviada";
+      allow read: if esAdmin() || (registrado() && resource.data.tecnicoUid == request.auth.uid);
+      // Solo el administrador da el aval o la rechaza. La persona puede retirarla mientras no se haya revisado.
+      allow update: if esAdmin();
+      allow delete: if esAdmin() || (registrado()
+        && resource.data.tecnicoUid == request.auth.uid
+        && resource.data.estado == "enviada");
+
+      // Documento escaneado, partido en trozos de menos de 1 MB
+      match /archivos/{archivoId} {
+        allow create: if registrado()
+          && request.resource.data.tecnicoUid == request.auth.uid
+          && getAfter(/databases/$(database)/documents/incapacidades/$(id)).data.tecnicoUid == request.auth.uid;
+        allow read: if esAdmin() || (registrado() && resource.data.tecnicoUid == request.auth.uid);
+        allow update: if false;
+        allow delete: if esAdmin() || (registrado()
+          && resource.data.tecnicoUid == request.auth.uid
+          && get(/databases/$(database)/documents/incapacidades/$(id)).data.estado == "enviada");
+      }
+    }
+
+    // Novedades del día por persona (incapacidad, permiso, vacaciones…)
+    match /novedades/{id} {
+      allow read: if esAdmin() || (registrado() && resource.data.tecnicoUid == request.auth.uid);
+      allow write: if esAdmin();
     }
 
     // Sitios con código QR para el registro de horario

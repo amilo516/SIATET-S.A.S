@@ -1,6 +1,7 @@
 // =====================================================================
 //  FUNCIONES COMPARTIDAS (app del técnico y panel de administración)
 // =====================================================================
+
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
@@ -120,7 +121,7 @@ function escucharFormatoVigente(alCambiar) {
 // ---------- Descarga y envío del PDF ----------
 function nombreArchivoPdf(informe) {
   const entidad = (informe.campos?.entidad || "").replace(/[^\wÁÉÍÓÚÑáéíóúñ-]+/g, "_");
-  return `Informe_${informe.numero}${entidad ? "_" + entidad : ""}.pdf`;
+  return `Informe_${informe.numero || "sin_numero"}${entidad ? "_" + entidad : ""}.pdf`;
 }
 
 // ---------- Fotos ----------
@@ -165,20 +166,108 @@ async function cargarFotos(informe) {
   return informe.fotos;
 }
 
-async function descargarPdf(informe) {
+// Texto rojo arriba de cada página (vista previa, informe pendiente)
+function marcarPdf(doc, texto) {
+  for (let pagina = 1; pagina <= doc.getNumberOfPages(); pagina++) {
+    doc.setPage(pagina);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(179, 38, 30);
+    doc.text(texto, 215.9 / 2, 8, { align: "center" });
+  }
+  return doc;
+}
+
+// ---------- Estado de un informe y su color ----------
+//   rojo: pendiente (falta firma o terminar el servicio)
+//   amarillo: por enviar o esperando número · verde: enviado
+function estadoDeInforme(informe) {
+  if (informe.estado === "pendiente") return { clase: "rojo", texto: "Pendiente" };
+  if (informe._pendiente) return { clase: "amarillo", texto: "Por enviar" };
+  if (!informe.numero) return { clase: "amarillo", texto: "Esperando número" };
+  return { clase: "verde", texto: "Enviado" };
+}
+
+async function prepararPdf(informe) {
   const formato = await obtenerFormato(informe.formatoVersion);
   await cargarFotos(informe);
   const doc = generarPDF(informe, formato);
+  return informe.estado === "pendiente" ? marcarPdf(doc, "INFORME PENDIENTE - SIN FINALIZAR") : doc;
+}
+
+async function descargarPdf(informe) {
+  const doc = await prepararPdf(informe);
   doc.save(nombreArchivoPdf(informe));
 }
 
+// ---------- Ver el informe sin descargarlo ----------
+// El PDF se dibuja página por página dentro de la app con pdf.js, así se ve
+// igual en el computador y en el celular (Android no muestra PDF en la página).
+let cargaPdfJs = null;
+function cargarPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (!cargaPdfJs) {
+    cargaPdfJs = new Promise((resolver, rechazar) => {
+      const s = document.createElement("script");
+      s.src = "js/libs/pdfjs.min.js";
+      s.onload = () => {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = "js/libs/pdfjs.worker.min.js";
+        resolver(window.pdfjsLib);
+      };
+      s.onerror = () => { cargaPdfJs = null; rechazar(new Error("No se pudo abrir el visor. Revisa la conexión.")); };
+      document.head.appendChild(s);
+    });
+  }
+  return cargaPdfJs;
+}
+
+let visorActual = 0;
+async function verPdf(informe) {
+  if (!informe) return;
+  const dialogo = $("#dialogo-visor"), paginas = $("#visor-paginas");
+  const turno = ++visorActual;
+  $("#visor-titulo").textContent = informe.numero ? `Informe ${informe.numero}` : "Informe sin número";
+  $("#visor-descargar").onclick = () => descargarPdf(informe).catch((err) => aviso(err.message, "error"));
+  paginas.innerHTML = `<p class="nota visor-cargando">Preparando el informe…</p>`;
+  if (!dialogo.open) dialogo.showModal();
+  try {
+    const [doc, pdfjs] = await Promise.all([prepararPdf(informe), cargarPdfJs()]);
+    const pdf = await pdfjs.getDocument({ data: doc.output("arraybuffer") }).promise;
+    if (turno !== visorActual || !dialogo.open) return;
+    paginas.innerHTML = "";
+    const ancho = Math.max(280, paginas.clientWidth - 24);
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const pagina = await pdf.getPage(n);
+      if (turno !== visorActual || !dialogo.open) return;
+      const base = pagina.getViewport({ scale: 1 });
+      const escala = (ancho / base.width) * Math.min(2, window.devicePixelRatio || 1);
+      const vista = pagina.getViewport({ scale: escala });
+      const lienzo = document.createElement("canvas");
+      lienzo.width = Math.floor(vista.width);
+      lienzo.height = Math.floor(vista.height);
+      lienzo.setAttribute("aria-label", `Página ${n} de ${pdf.numPages}`);
+      paginas.appendChild(lienzo);
+      await pagina.render({ canvasContext: lienzo.getContext("2d"), viewport: vista }).promise;
+    }
+  } catch (err) {
+    console.error(err);
+    if (turno === visorActual) paginas.innerHTML = `<p class="nota visor-cargando">No se pudo mostrar el informe: ${escaparHtml(err.message || String(err))}</p>`;
+  }
+}
+
+function cerrarVisor() {
+  visorActual++;
+  $("#dialogo-visor").close();
+  $("#visor-paginas").innerHTML = "";
+}
+document.addEventListener("click", (e) => { if (e.target.id === "visor-cerrar") cerrarVisor(); });
+document.addEventListener("close", (e) => { if (e.target.id === "dialogo-visor") { visorActual++; $("#visor-paginas").innerHTML = ""; } }, true);
+
 async function compartirPdf(informe) {
-  const formato = await obtenerFormato(informe.formatoVersion);
-  await cargarFotos(informe);
-  const doc = generarPDF(informe, formato);
+  const doc = await prepararPdf(informe);
   const archivo = new File([doc.output("blob")], nombreArchivoPdf(informe), { type: "application/pdf" });
   if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
-    await navigator.share({ files: [archivo], title: `Informe ${informe.numero}` });
+    await navigator.share({ files: [archivo], title: `Informe ${informe.numero || "sin número"}` });
   } else {
     doc.save(archivo.name);
     aviso("Tu dispositivo no permite compartir directo. El PDF se descargó.");
@@ -208,9 +297,13 @@ function registrarServiceWorker() {
         });
       });
 
-      // Busca actualizaciones al abrir y cada vez que vuelve la conexión
-      window.addEventListener("online", () => reg.update());
-      setInterval(() => navigator.onLine && reg.update(), 30 * 60 * 1000);
+      // Busca actualizaciones al abrir, al volver a la app, cuando vuelve
+      // la conexión y cada 30 minutos
+      const buscar = () => navigator.onLine && reg.update().catch(() => {});
+      buscar();
+      window.addEventListener("online", buscar);
+      document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && buscar());
+      setInterval(buscar, 30 * 60 * 1000);
 
       let recargando = false;
       navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -222,4 +315,12 @@ function registrarServiceWorker() {
       console.warn("Service worker no registrado:", e);
     }
   });
+}
+
+// Prefijo del técnico que hizo el informe. Los informes viejos no lo
+// guardaban: se toma del número (EL-0041 -> EL).
+function prefijoTecnico(informe) {
+  if (informe.tecnicoPrefijo) return informe.tecnicoPrefijo;
+  const m = /^([A-Z]{2,4})-\d+$/.exec(informe.numero || "");
+  return m && m[1] !== "IST" ? m[1] : "";
 }
